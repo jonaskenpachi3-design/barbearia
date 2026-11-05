@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Início · Navalha</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand">NAVALHA</div>
+    <div class="who">
+      <span class="avatar" id="avatar" aria-hidden="true"></span>
+      <button class="btn btn-small btn-line" id="sair" type="button">Sair</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Seções do cliente">
+    <button class="tab" role="tab" id="tab-agendar" aria-selected="true" type="button">Agendar</button>
+    <button class="tab" role="tab" id="tab-minha-agenda" aria-selected="false" type="button">Minha Agenda</button>
+    <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
+    <button class="tab" role="tab" id="tab-barbeiros" aria-selected="false" type="button">Barbeiros</button>
+  </nav>
+
+  <section class="tabpanel" id="panel-agendar" role="tabpanel" aria-labelledby="tab-agendar">
+    <div class="card">
+      <div class="row" style="margin-bottom: 12px;">
+        <div class="field">
+          <label for="ag-data">Data</label>
+          <input class="input" id="ag-data" type="date" required>
+        </div>
+        <div class="field">
+          <label for="ag-servico">Serviço</label>
+          <select class="input" id="ag-servico" required></select>
+        </div>
+        <div class="field">
+          <label for="ag-barbeiro">Barbeiro</label>
+          <select class="input" id="ag-barbeiro" required></select>
+        </div>
+      </div>
+      <div id="ag-horarios" class="chips" style="min-height: 44px;" aria-live="polite"></div>
+      <div class="erro" id="ag-erro" role="alert" hidden></div>
+    </div>
+  </section>
+
+  <section class="tabpanel" id="panel-minha-agenda" role="tabpanel" aria-labelledby="tab-minha-agenda" hidden>
+    <h2 class="display section-title">Próximos agendamentos</h2>
+    <div class="list" id="agenda-proximos" aria-live="polite"></div>
+    <h2 class="display section-title" style="margin-top: 24px;">Histórico</h2>
+    <div class="list" id="agenda-historico" aria-live="polite"></div>
+  </section>
+
+  <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="tab-servicos" hidden>
+    <h2 class="display section-title">Serviços</h2>
+    <div class="list" id="servicos" aria-live="polite"></div>
+  </section>
+
+  <section class="tabpanel" id="panel-barbeiros" role="tabpanel" aria-labelledby="tab-barbeiros" hidden>
+    <h2 class="display section-title">Barbeiros</h2>
+    <div class="list" id="barbeiros" aria-live="polite"></div>
+  </section>
+</main>
+<script src="js/app.js"></script>
+<script src="js/cliente.js"></script>
+</body>
+</html>

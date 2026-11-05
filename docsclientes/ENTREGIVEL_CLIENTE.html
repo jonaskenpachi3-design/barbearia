@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Navalha — Sistema de Barbearia | Entregável Fase 1</title>
+<style>
+:root {
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a2e;
+  --color-text-muted: #5a5a7a;
+  --color-primary: #1a1a2e;
+  --color-primary-light: #2d2d5e;
+  --color-accent: #c9a84c;
+  --color-accent-dark: #b8963e;
+  --color-success: #2e7d32;
+  --color-warning: #f57c00;
+  --color-border: #e0e0e8;
+  --color-code-bg: #f5f5f5;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Monaco", Consolas, monospace;
+  --max-width: 900px;
+  --spacing: 1.5rem;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0d0d1a;
+    --color-surface: #141428;
+    --color-text: #e8e8f0;
+    --color-text-muted: #a0a0b8;
+    --color-primary: #e8e8f0;
+    --color-primary-light: #c0c0d8;
+    --color-accent: #d4b85c;
+    --color-accent-dark: #c4a84c;
+    --color-success: #66bb6a;
+    --color-warning: #ffb74d;
+    --color-border: #2a2a4a;
+    --color-code-bg: #1a1a30;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+header {
+  text-align: center;
+  padding: 3rem 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 3rem;
+}
+
+header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+}
+
+header .subtitle {
+  font-size: 1.25rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+header .meta {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+header .meta span { display: flex; align-items: center; gap: 0.4rem; }
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-success { background: var(--color-success); color: white; }
+.badge-info { background: var(--color-primary); color: white; }
+.badge-warning { background: var(--color-warning); color: white; }
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 3rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--color-accent);
+}
+
+h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-primary-light);
+  margin: 2rem 0 0.75rem;
+}
+
+h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 1.5rem 0 0.5rem;
+}
+
+p { margin: 0.75rem 0; color: var(--color-text); }
+
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul, ol { margin: 0.75rem 0 0.75rem 1.5rem; }
+li { margin: 0.4rem 0; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-code-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--color-accent-dark);
+}
+
+pre {
+  background: var(--color-code-bg);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--color-border);
+}
+
+pre code { background: none; padding: 0; color: var(--color-text); font-size: 0.85rem; line-height: 1.6; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+th, td {
+  border: 1px solid var(--color-border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+th { background: var(--color-code-bg); font-weight: 600; color: var(--color-primary); }
+tr:nth-child(even) td { background: var(--color-code-bg); }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+
+.card h3 { margin-top: 0; color: var(--color-accent-dark); font-size: 1.1rem; }
+.card ul { margin: 0.75rem 0 0 1.25rem; }
+.card li { margin: 0.35rem 0; font-size: 0.95rem; }
+
+.phase-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.phase-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.phase-number { font-size: 2rem; font-weight: 700; color: var(--color-accent); }
+.phase-title { font-size: 1.25rem; font-weight: 600; color: var(--color-primary); }
+.phase-status { margin-left: auto; }
+
+.checklist { list-style: none; margin: 0; padding: 0; }
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.checklist li:last-child { border-bottom: none; }
+.checklist .check { color: var(--color-success); font-weight: bold; flex-shrink: 0; }
+.checklist .pending { color: var(--color-text-muted); flex-shrink: 0; }
+.checklist .item-title { font-weight: 500; }
+.checklist .item-desc { color: var(--color-text-muted); font-size: 0.9rem; margin-top: 0.15rem; }
+
+.footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--color-border);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.toc {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+
+.toc h3 { margin: 0 0 1rem; font-size: 1.1rem; }
+.toc ul { list-style: none; margin: 0; padding: 0; columns: 2; gap: 1rem; }
+.toc li { margin: 0.35rem 0; }
+.toc a { color: var(--color-text); font-size: 0.95rem; }
+.toc a:hover { color: var(--color-accent); }
+
+@media print {
+  body { padding: 0; max-width: 100%; }
+  header { page-break-after: avoid; }
+  h2, h3, .card, .phase-card { page-break-inside: avoid; }
+  .no-print { display: none; }
+}
+
+@media (max-width: 600px) {
+  body { padding: 1rem; }
+  header h1 { font-size: 1.75rem; }
+  .toc ul { columns: 1; }
+  table { font-size: 0.8rem; }
+  th, td { padding: 0.5rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Navalha</h1>
+  <p class="subtitle">Sistema de Gestão para Barbearia</p>
+  <div class="meta">
+    <span><strong>Entregável:</strong> Fase 1 — Base</span>
+    <span><strong>Status:</strong> <span class="badge badge-success">Concluída</span></span>
+    <span><strong>Versão:</strong> 0.1.0</span>
+    <span><strong>Data:</strong> Novembro 2026</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sumário">
+  <h3>Sumário</h3>
+  <ul>
+    <li><a href="#resumo">1. Resumo Executivo</a></li>
+    <li><a href="#funcoes">2. Funcionalidades por Papel</a></li>
+    <li><a href="#tecnologia">3. Tecnologia e Arquitetura</a></li>
+    <li><a href="#seguranca">4. Segurança Implementada</a></li>
+    <li><a href="#api">5. API REST</a></li>
+    <li><a href="#rodar">6. Como Rodar em Produção</a></li>
+    <li><a href="#estrutura">7. Estrutura do Projeto</a></li>
+    <li><a href="#testes">8. Testes Automatizados</a></li>
+    <li><a href="#roadmap">9. Roadmap — Próximas Fases</a></li>
+    <li><a href="#investimento">10. Investimento e Entrega</a></li>
+    <li><a href="#suporte">11. Suporte e Manutenção</a></li>
+    <li><a href="#proximos">12. Próximos Passos</a></li>
+    <li><a href="#contato">13. Contato</a></li>
+  </ul>
+</nav>
+
+<section id="resumo">
+  <h2>1. Resumo Executivo</h2>
+  <p>O <strong>Navalha</strong> é um sistema completo de gestão para barbearias, desenvolvido em fases incrementais. Esta entrega corresponde à <strong>Fase 1</strong>, que estabelece toda a fundação técnica e os cadastros mestres necessários para o funcionamento do negócio.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>✅ O que está pronto</h3>
+      <ul>
+        <li>Login por papel (Cliente, Barbeiro, Administrador)</li>
+        <li>Cadastro e gestão de Serviços</li>
+        <li>Cadastro e gestão de Barbeiros (comissão, serviços)</li>
+        <li>Jornada de trabalho semanal (múltiplos turnos/dia)</li>
+        <li>Interface web responsiva (4 telas dedicadas)</li>
+        <li>Testes automatizados (9 testes passando)</li>
+        <li>Segurança nível produção</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🎯 Princípios de Design</h3>
+      <ul>
+        <li>Zero dependências externas</li>
+        <li>Deploy trivial (copia pasta, roda)</li>
+        <li>Banco SQLite — backup = copiar arquivo</li>
+        <li>Preços em centavos (inteiros)</li>
+        <li>Soft delete (desativa, não apaga)</li>
+        <li>Permissão checada no servidor</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="funcoes">
+  <h2>2. Funcionalidades por Papel</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>👤 Cliente</h3>
+      <ul>
+        <li>Criar conta (nome, e-mail, telefone, senha)</li>
+        <li>Entrar / Sair com bloqueio após 5 tentativas</li>
+        <li>Ver serviços ativos (duração, preço)</li>
+        <li>Ver barbeiros ativos + serviços + horários</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>✂️ Barbeiro</h3>
+      <ul>
+        <li>Credenciais criadas pelo admin</li>
+        <li>Ver própria jornada (dias, turnos, serviços)</li>
+        <li>Ver comissão percentual configurada</li>
+        <li><strong>Não acessa</strong> painel admin, outros barbeiros</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🛠️ Administrador</h3>
+      <ul>
+        <li><strong>Serviços:</strong> CRUD + ativar/desativar</li>
+        <li><strong>Barbeiros:</strong> Cadastrar (login, comissão %, serviços), editar, desativar</li>
+        <li><strong>Jornada:</strong> Definir horários semanais, múltiplos turnos, sem sobreposição</li>
+        <li><strong>Visão total:</strong> Vê todos serviços/barbeiros (incl. inativos)</li>
+      </ul>
+    </div>
+  </div>
+
+  <p><strong>Regra de negócio:</strong> Serviços e barbeiros <strong>nunca são apagados</strong>, apenas desativados (<code>ativo: false</code>). Isso garante integridade dos agendamentos futuros (Fase 2).</p>
+</section>
+
+<section id="tecnologia">
+  <h2>3. Tecnologia e Arquitetura</h2>
+
+  <table>
+    <thead>
+      <tr><th>Camada</th><th>Tecnologia</th><th>Justificativa</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Runtime</td><td>Node.js 22.13+ (LTS)</td><td>Suporte nativo a SQLite, fetch, test runner</td></tr>
+      <tr><td>Servidor HTTP</td><td><code>node:http</code> nativo</td><td>Zero dependências, controle total, performance</td></tr>
+      <tr><td>Banco de Dados</td><td>SQLite (<code>node:sqlite</code>)</td><td>Arquivo único, WAL mode, backup trivial, ideal p/ barbearia única</td></tr>
+      <tr><td>Criptografia</td><td><code>node:crypto</code> — scrypt</td><td>Padrão moderno, resistente a GPU/ASIC, salt único por usuário</td></tr>
+      <tr><td>Frontend</td><td>HTML5, CSS3, JS ES Modules</td><td>Sem build step, cacheável, leve, funciona offline</td></tr>
+      <tr><td>Testes</td><td><code>node:test</code> nativo</td><td>Zero config, roda em CI sem dependências</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Por que Zero Dependências?</h3>
+  <ul>
+    <li><strong>Segurança:</strong> Zero vulnerabilidades de supply chain (npm audit = clean)</li>
+    <li><strong>Confiabilidade:</strong> Zero <code>npm install</code> quebrado, zero breaking changes de libs</li>
+    <li><strong>Deploy:</strong> Copia a pasta → <code>node server.js</code> → funciona</li>
+    <li><strong>Longevidade:</strong> APIs nativas do Node são estáveis por décadas</li>
+  </ul>
+</section>
+
+<section id="seguranca">
+  <h2>4. Segurança Implementada</h2>
+
+  <table>
+    <thead>
+      <tr><th>Medida</th><th>Implementação</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Senhas</td><td>scrypt (N=16384, r=8, p=1), salt único por usuário</td></tr>
+      <tr><td>Sessão</td><td>Token 256 bits aleatório, hash no banco, cookie <code>HttpOnly</code> + <code>SameSite=Lax</code> + <code>Secure</code> (opcional)</td></tr>
+      <tr><td>Força bruta</td><td>Bloqueio 15 min após 5 tentativas erradas (por IP + e-mail)</td></tr>
+      <tr><td>SQL Injection</td><td>100% queries parametrizadas (<code>db.prepare().run(?)</code>)</td></tr>
+      <tr><td>XSS</td><td>Templates com <code>textContent</code> (nunca <code>innerHTML</code>), CSP restritiva</td></tr>
+      <tr><td>Path Traversal</td><td>Validação caminho absoluto vs pasta pública</td></tr>
+      <tr><td>Permissões</td><td>Checagem no <strong>servidor</strong> em toda rota (não apenas UI)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Headers de Segurança (CSP)</h3>
+  <pre><code>default-src 'self'
+script-src 'self'
+style-src 'self' https://fonts.googleapis.com
+font-src https://fonts.gstatic.com
+img-src 'self' data:
+connect-src 'self'
+frame-ancestors 'none'
+base-uri 'none'
+form-action 'self'</code></pre>
+</section>
+
+<section id="api">
+  <h2>5. API REST — Resumo</h2>
+
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Rota</th><th>Papel</th><th>Descrição</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>POST</td><td>/api/auth/cadastro</td><td>Público</td><td>Cria cliente + login automático</td></tr>
+      <tr><td>POST</td><td>/api/auth/login</td><td>Público</td><td>Login (bloqueio 5 tentativas)</td></tr>
+      <tr><td>POST</td><td>/api/auth/logout</td><td>Logado</td><td>Encerra sessão</td></tr>
+      <tr><td>GET</td><td>/api/auth/me</td><td>Logado</td><td>Dados do usuário atual</td></tr>
+      <tr><td>GET</td><td>/api/servicos</td><td>Público</td><td>Serviços ativos (admin vê todos)</td></tr>
+      <tr><td>POST/PUT</td><td>/api/servicos</td><td>Admin</td><td>Criar/editar serviço</td></tr>
+      <tr><td>GET</td><td>/api/barbeiros</td><td>Público</td><td>Barbeiros ativos + serviços + horários (sem dados sensíveis)</td></tr>
+      <tr><td>POST/PUT</td><td>/api/barbeiros</td><td>Admin</td><td>Criar/editar barbeiro</td></tr>
+      <tr><td>PUT</td><td>/api/barbeiros/:id/horarios</td><td>Admin</td><td>Substituir jornada completa</td></tr>
+      <tr><td>GET</td><td>/api/meu-barbeiro</td><td>Barbeiro</td><td>Próprio cadastro e jornada</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Nota:</strong> Preços armazenados em <strong>centavos (inteiro)</strong> — evita erros de ponto flutuante. Jornada: <code>dia_semana</code> 0 (dom) a 6 (sáb), horários <code>HH:MM</code>, múltiplos turnos/dia sem sobreposição.</p>
+</section>
+
+<section id="rodar">
+  <h2>6. Como Rodar em Produção</h2>
+
+  <h3>Pré-requisitos</h3>
+  <pre><code># Node 22.13+ (LTS)
+node -v</code></pre>
+
+  <h3>Variáveis de Ambiente (Recomendadas)</h3>
+  <pre><code>export ADMIN_EMAIL="admin@suabarbearia.com"
+export ADMIN_SENHA="SenhaForte123!"
+export PORT=3000
+export DB_FILE="./data/barbearia.db"
+export COOKIE_SECURE=1    # obrigatório se usar HTTPS</code></pre>
+
+  <h3>Iniciar</h3>
+  <pre><code>node server.js</code></pre>
+
+  <p><strong>Primeira execução sem <code>ADMIN_SENHA</code>:</strong> o sistema gera uma senha aleatória segura e mostra <strong>uma única vez</strong> no console. <em>Anote-a.</em></p>
+
+  <h3>Deploy com HTTPS (Recomendado)</h3>
+  <pre><code># Exemplo com Caddy (automático Let's Encrypt)
+suabarbearia.com {
+  reverse_proxy localhost:3000
+}</code></pre>
+  <p>Com HTTPS ativo, defina <code>COOKIE_SECURE=1</code> para cookies seguros.</p>
+</section>
+
+<section id="estrutura">
+  <h2>7. Estrutura do Projeto</h2>
+
+  <pre><code>barbearia/
+├── server.js              # Servidor HTTP, estáticos, headers segurança
+├── package.json           # Metadados, scripts (start, test)
+├── README.md              # Documentação técnica
+├── ROADMAP.md             # Planejamento completo (6 fases)
+├── data/
+│   └── barbearia.db       # Banco SQLite (criado automaticamente)
+├── src/
+│   ├── db.js              # Schema, conexão, bootstrap admin
+│   ├── senha.js           # Hash/verificação scrypt
+│   ├── auth.js            # Sessões, cookies, rate-limit, permissões
+│   ├── http.js            # Mini-router, utilitários JSON/cookies
+│   ├── validar.js         # Validação entrada (e-mail, horários, etc.)
+│   └── routes.js          # Rotas API + regras de negócio
+├── public/
+│   ├── index.html         # Login / seleção de papel
+│   ├── cliente.html       # Tela do cliente
+│   ├── barbeiro.html      # Tela do barbeiro
+│   ├── admin.html         # Painel administrativo
+│   ├── css/app.css        # Estilos compartilhados (design system)
+│   └── js/                # Um arquivo JS por tela (ES Modules)
+└── test/
+    └── api.test.js        # 9 testes automatizados</code></pre>
+</section>
+
+<section id="testes">
+  <h2>8. Testes Automatizados</h2>
+
+  <pre><code>npm test</code></pre>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>✅ Cobertura (9 testes)</h3>
+      <ul>
+        <li>Cadastro cliente (e-mail normalizado, validações)</li>
+        <li>Login/logout, bloqueio força bruta (429 após 5 tentativas)</li>
+        <li>Exigência <code>Content-Type: application/json</code> em escritas</li>
+        <li>Serviços: permissões, validações, ativo/inativo</li>
+        <li>Barbeiros: cadastro, jornada, visão pública sem vazamento, desativação derruba sessão</li>
+        <li>Rotas inexistentes e métodos errados (404/405)</li>
+        <li>Arquivos estáticos + proteção path traversal</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔧 Como rodar</h3>
+      <pre><code># Roda todos
+npm test
+
+# Ou direto com Node
+node --test test/api.test.js</code></pre>
+      <p>Testes usam banco em memória (<code>:memory:</code>) — isolados, rápidos, determinísticos.</p>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <h2>9. Roadmap — Próximas Fases</h2>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">1</span>
+      <span class="phase-title">Base</span>
+      <span class="phase-status badge badge-success">Concluída</span>
+    </div>
+    <p>Login multi-papel, serviços, barbeiros, jornadas, segurança base, testes, frontend.</p>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">2</span>
+      <span class="phase-title">Agendamentos</span>
+      <span class="phase-status badge badge-warning">Próxima</span>
+    </div>
+    <ul class="checklist">
+      <li><span class="check">✓</span><span class="item-title">Modelo de dados</span><span class="item-desc"><code>agendamentos</code>, <code>bloqueios</code></span></li>
+      <li><span class="pending">○</span><span class="item-title">Cálculo slots livres</span><span class="item-desc">Jornada − agendamentos − bloqueios (função pura, testável)</span></li>
+      <li><span class="pending">○</span><span class="item-title"><code>GET /api/horarios-livres</code></span><span class="item-desc"><code>?barbeiro=&data=&servico=</code> → slots 15/30 min conforme duração</span></li>
+      <li><span class="pending">○</span><span class="item-title"><code>POST /api/agendamentos</code></span><span class="item-desc">Cliente cria em <code>pendente</code>, valida horário livre, conflitos</span></li>
+      <li><span class="pending">○</span><span class="item-title">Confirmação/Cancelamento</span><span class="item-desc">Barbeiro/admin confirmam; cliente cancela até 2h antes</span></li>
+      <li><span class="pending">○</span><span class="item-title">Telas</span><span class="item-desc">Agendar (cliente), Minha Agenda, Agenda Barbeiro, Agenda Admin</span></li>
+    </ul>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">3</span>
+      <span class="phase-title">Operação & Financeiro</span>
+      <span class="phase-status badge badge-info">Planejada</span>
+    </div>
+    <p>PDV (walk-in, produtos, pagamentos, fechamento caixa), Comissão (regras, relatórios, pagamento), Estoque (produtos, baixa automática, alertas), Caixa (abertura/fechamento, relatórios), Histórico Cliente (cortes, produtos, anotações).</p>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">4</span>
+      <span class="phase-title">Experiência do Cliente</span>
+      <span class="phase-status badge badge-info">Planejada</span>
+    </div>
+    <p>WhatsApp/e-mail (lembretes, confirmações, atrasos), Fila de espera virtual, Fidelidade (cartão digital, pacotes, assinatura), Avaliações (1-5 estrelas, comentários, média por barbeiro).</p>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">5</span>
+      <span class="phase-title">Gestão & Escala</span>
+      <span class="phase-status badge badge-info">Planejada</span>
+    </div>
+    <p>Multi-unidade (filiais, gerentes), Relatórios gerenciais (faturamento, ocupação, LTV, comissões, export CSV/PDF), Integrações (NFe, Google Calendar, WhatsApp Business, pagamentos), Permissões granulares (matriz por rota/ação).</p>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-number">6</span>
+      <span class="phase-title">Engenharia & Qualidade</span>
+      <span class="phase-status badge badge-info">Planejada</span>
+    </div>
+    <p>E2E (Playwright), Carga (k6), Coverage ≥80%, CI/CD (GitHub Actions), Deploy automático, Migrações versionadas, Observabilidade (logs, métricas, alertas), Backup/Restore (S3/R2, PITR), LGPD (export, exclusão, consentimento, retenção).</p>
+  </div>
+</section>
+
+<section id="investimento">
+  <h2>10. Investimento e Entrega</h2>
+
+  <h3>O que você recebe agora (Fase 1)</h3>
+  <ul>
+    <li>✅ Código-fonte completo (propriedade do cliente — sem licenças/assinaturas)</li>
+    <li>✅ Documentação técnica (<code>README.md</code>, <code>ROADMAP.md</code>)</li>
+    <li>✅ Banco de dados SQLite portável (arquivo único)</li>
+    <li>✅ Suite de testes automatizados</li>
+    <li>✅ Instruções de deploy produção</li>
+  </ul>
+
+  <h3>Estimativa Fase 2 (Agendamentos)</h3>
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Esforço Estimado</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Backend (modelo, cálculo slots, rotas)</td><td>~16h</td></tr>
+      <tr><td>Frontend (3 telas + integração)</td><td>~12h</td></tr>
+      <tr><td>Testes + ajustes</td><td>~4h</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>~32h</strong></td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Nota:</strong> A base da Fase 1 (jornada, duração dos serviços, permissões) já está pronta para suportar a Fase 2 sem retrabalho.</p>
+</section>
+
+<section id="suporte">
+  <h2>11. Suporte e Manutenção</h2>
+
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Detalhes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Código</td><td>100% seu — sem licenças, assinaturas ou vendor lock-in</td></tr>
+      <tr><td>Banco</td><td>SQLite — backup = copiar <code>data/barbearia.db</code></td></tr>
+      <tr><td>Deploy</td><td>VPS Linux barato ($5-10/mês), Docker opcional, systemd/service nativo</td></tr>
+      <tr><td>Atualizações</td><td>Pull do repositório + <code>node server.js</code> (migrações automáticas no <code>db.js</code>)</td></tr>
+      <tr><td>Monitoramento</td><td>Logs no console (pode integrar Loki/Prometheus depois)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="proximos">
+  <h2>12. Próximos Passos Sugeridos</h2>
+  <ol>
+    <li><strong>Validar em homologação</strong> — rode <code>node server.js</code>, teste os 3 papéis</li>
+    <li><strong>Definir dados iniciais</strong> — serviços reais, barbeiros reais, comissões acordadas</li>
+    <li><strong>Agendar kickoff Fase 2</strong> — alinhar regras (antecedência mínima, cancelamento, bloqueios)</li>
+    <li><strong>Escolher hospedagem</strong> — VPS, Railway, Coolify, ou servidor próprio</li>
+    <li><strong>Configurar HTTPS</strong> — Caddy ou nginx + Let's Encrypt (ativa <code>COOKIE_SECURE=1</code>)</li>
+  </ol>
+</section>
+
+<section id="contato">
+  <h2>13. Contato</h2>
+  <p><strong>Desenvolvedor:</strong> Jonas Sousa<br>
+  <strong>Projeto:</strong> Navalha — Sistema de Barbearia<br>
+  <strong>Repositório:</strong> [caminho local ou Git]<br>
+  <strong>Data da entrega:</strong> Novembro 2026</p>
+</section>
+
+<footer class="footer">
+  <p>Este documento acompanha o código-fonte. Para dúvidas técnicas, consulte <code>README.md</code> (técnico) e <code>ROADMAP.md</code> (planejamento estratégico).</p>
+  <p style="margin-top: 1rem; font-size: 0.8rem;">Navalha v0.1.0 — Fase 1 Entregue — Novembro 2026</p>
+</footer>
+
+</body>
+</html>

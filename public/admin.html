@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administração · Navalha</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">NAVALHA</div>
+    <nav class="nav" aria-label="Seções">
+      <button class="nav-btn" id="nav-servicos" type="button" aria-current="page">Serviços</button>
+      <button class="nav-btn" id="nav-barbeiros" type="button">Barbeiros</button>
+      <button class="nav-btn" id="nav-agenda" type="button">Agenda</button>
+      <button class="nav-btn" id="nav-bloqueios" type="button">Bloqueios</button>
+    </nav>
+    <div class="side-user">
+      <span class="avatar" id="avatar" aria-hidden="true"></span>
+      <div>
+        <div class="small" id="nome-admin"></div>
+        <div class="small muted-on-dark">Administrador</div>
+      </div>
+      <button class="btn" id="sair" type="button">Sair</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section id="view-servicos" aria-labelledby="titulo-servicos">
+      <div class="main-head">
+        <h1 class="display" id="titulo-servicos">Serviços</h1>
+        <button class="btn btn-primary" id="novo-servico" type="button">+ Novo serviço</button>
+      </div>
+      <div class="tabela" id="tabela-servicos"></div>
+    </section>
+
+    <section id="view-barbeiros" aria-labelledby="titulo-barbeiros" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-barbeiros">Barbeiros</h1>
+        <button class="btn btn-primary" id="novo-barbeiro" type="button">+ Novo barbeiro</button>
+      </div>
+      <div class="tabela" id="tabela-barbeiros"></div>
+    </section>
+
+    <section id="view-agenda" aria-labelledby="titulo-agenda" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-agenda">Agenda</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <label for="adm-data" class="label" style="margin: 0;">Data</label>
+          <input class="input" id="adm-data" type="date" style="flex: 1; min-width: 160px;">
+          <select class="input" id="adm-barbeiro" style="flex: 1; min-width: 180px;">
+            <option value="">Todos os barbeiros</option>
+          </select>
+          <select class="input" id="adm-status" style="flex: 1; min-width: 160px;">
+            <option value="">Todos os status</option>
+            <option value="pendente">Pendentes</option>
+            <option value="confirmado">Confirmados</option>
+            <option value="cancelado">Cancelados</option>
+            <option value="concluido">Concluídos</option>
+          </select>
+        </div>
+      </div>
+      <div class="tabela" id="tabela-agenda"></div>
+    </section>
+
+    <section id="view-bloqueios" aria-labelledby="titulo-bloqueios" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-bloqueios">Bloqueios</h1>
+        <button class="btn btn-primary" id="novo-bloqueio" type="button">+ Bloquear horário</button>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
+        <label for="bl-data" class="label" style="margin: 0;">Data</label>
+        <input class="input" id="bl-data" type="date" style="flex: 1; min-width: 160px;">
+        <select class="input" id="bl-barbeiro" style="flex: 1; min-width: 180px;">
+          <option value="">Todos os barbeiros</option>
+        </select>
+      </div>
+      <div class="tabela" id="tabela-bloqueios"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg-servico" aria-labelledby="dlg-servico-titulo">
+  <form class="dlg" id="form-servico" novalidate>
+    <h2 class="display" id="dlg-servico-titulo">Novo serviço</h2>
+    <div class="field">
+      <label for="sv-nome">Nome</label>
+      <input class="input" id="sv-nome" maxlength="60" required>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="sv-duracao">Duração (minutos)</label>
+        <input class="input" id="sv-duracao" type="number" min="5" max="480" step="5" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label for="sv-preco">Preço (R$)</label>
+        <input class="input" id="sv-preco" inputmode="decimal" placeholder="45,00" required>
+      </div>
+    </div>
+    <label class="check" id="sv-ativo-wrap"><input type="checkbox" id="sv-ativo"> Serviço ativo (aparece para os clientes)</label>
+    <div class="erro" id="sv-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="sv-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="sv-salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-barbeiro" aria-labelledby="dlg-barbeiro-titulo">
+  <form class="dlg" id="form-barbeiro" novalidate>
+    <h2 class="display" id="dlg-barbeiro-titulo">Novo barbeiro</h2>
+    <div class="row">
+      <div class="field">
+        <label for="bb-nome">Nome</label>
+        <input class="input" id="bb-nome" maxlength="80" required>
+      </div>
+      <div class="field">
+        <label for="bb-telefone">Telefone</label>
+        <input class="input" id="bb-telefone" type="tel" maxlength="20">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field wide">
+        <label for="bb-email">E-mail (login)</label>
+        <input class="input" id="bb-email" type="email" maxlength="120" required>
+      </div>
+      <div class="field" id="bb-senha-wrap">
+        <label for="bb-senha">Senha inicial</label>
+        <input class="input" id="bb-senha" type="password" autocomplete="new-password" maxlength="72">
+      </div>
+      <div class="field">
+        <label for="bb-comissao">Comissão (%)</label>
+        <input class="input" id="bb-comissao" type="number" min="0" max="100" step="1" inputmode="numeric" required>
+      </div>
+    </div>
+    <label class="check" id="bb-ativo-wrap"><input type="checkbox" id="bb-ativo"> Barbeiro ativo (pode entrar e receber agendamentos)</label>
+
+    <div class="field">
+      <span class="label">Serviços que atende</span>
+      <div class="checks" id="bb-servicos"></div>
+    </div>
+
+    <div class="field">
+      <div class="row">
+        <span class="label">Jornada semanal</span>
+        <button class="btn btn-small btn-line" type="button" id="bb-padrao">Seg a sex, 09:00–18:00</button>
+        <button class="btn btn-small btn-line" type="button" id="bb-limpar">Limpar</button>
+      </div>
+      <div class="jornada" id="jornada"></div>
+    </div>
+
+    <div class="erro" id="bb-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="bb-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="bb-salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-bloqueio" aria-labelledby="dlg-bloqueio-titulo">
+  <form class="dlg" id="form-bloqueio" novalidate>
+    <h2 class="display" id="dlg-bloqueio-titulo">Bloquear horário</h2>
+    <div class="field">
+      <label for="bl-motivo">Motivo</label>
+      <input class="input" id="bl-motivo" placeholder="Feriado, manutenção, almoço estendido..." maxlength="100">
+    </div>
+    <div class="row">
+      <div class="field wide">
+        <label for="bl-inicio">Início</label>
+        <input class="input" id="bl-inicio" type="datetime-local" required>
+      </div>
+      <div class="field wide">
+        <label for="bl-fim">Fim</label>
+        <input class="input" id="bl-fim" type="datetime-local" required>
+      </div>
+    </div>
+    <div class="field">
+      <label for="bl-barbeiro">Barbeiro (vazio = todos)</label>
+      <select class="input" id="bl-barbeiro">
+        <option value="">Todos os barbeiros</option>
+      </select>
+    </div>
+    <div class="erro" id="bl-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="bl-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="bl-salvar">Bloquear</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

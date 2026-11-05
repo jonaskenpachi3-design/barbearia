@@ -1,0 +1,44 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente e segredos
+.env
+.env.local
+.env.*.local
+
+# Banco de dados local
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.wal
+data/*.db
+data/*.sqlite
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Build/artefatos
+dist/
+build/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testes temporários
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+EOF

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · Navalha</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="login-page">
+<main class="login-wrap">
+  <header>
+    <div class="brand">NAVALHA</div>
+    <p class="lead" id="lead">Escolha o barbeiro, o serviço e o horário. Sem fila, sem ligação.</p>
+  </header>
+
+  <form class="login-form" id="form" novalidate>
+    <div class="field" id="campo-nome" hidden>
+      <label for="nome">Nome</label>
+      <input class="input" id="nome" autocomplete="name" maxlength="80">
+    </div>
+    <div class="field">
+      <label for="email">E-mail</label>
+      <input class="input" id="email" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="120" required>
+    </div>
+    <div class="field" id="campo-telefone" hidden>
+      <label for="telefone">Telefone (opcional)</label>
+      <input class="input" id="telefone" type="tel" autocomplete="tel" placeholder="(68) 90000-0000" maxlength="20">
+    </div>
+    <div class="field">
+      <label for="senha">Senha</label>
+      <input class="input" id="senha" type="password" autocomplete="current-password" maxlength="72" required>
+    </div>
+    <div class="erro" id="erro" role="alert" hidden></div>
+    <button class="btn btn-primary" id="enviar" type="submit">Entrar</button>
+  </form>
+
+  <p class="small login-foot">
+    <span id="troca-texto">Ainda não tem conta?</span>
+    <button class="link-btn" id="troca" type="button">Criar conta</button>
+  </p>
+</main>
+<script src="js/app.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>
