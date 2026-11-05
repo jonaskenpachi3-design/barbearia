@@ -74,12 +74,19 @@ Se não houver administrador no banco, o sistema cria um e mostra **e-mail e sen
 npm test
 ```
 
-**23 testes** cobrindo:
+**35 testes** cobrendo:
 - Auth: cadastro, login, logout, rate limit (5 tentativas = 429), sessão, permissões
 - Serviços: CRUD admin, validações, visão pública só ativos
 - Barbeiros: cadastro, jornada, validações (sobreposição, formato, dia inválido), desativação
 - Agendamentos: criar, conflito, jornada, serviço inválido, confirmar (barbeiro/admin), cancelar (cliente 2h / barbeiro/admin livre), minha-agenda, agenda-barbeiro, agenda-admin
 - Bloqueios: criar/remover (admin), bloqueio por barbeiro, bloqueio global
+- **Produtos**: CRUD, entrada de estoque, alerta estoque baixo
+- **Comissão por serviço**: definir/remover regra específica
+- **PDV**: venda serviço/produto/misto, desconto, formas pagamento, baixa estoque, comissão
+- **Caixa**: abrir, sangria, fechar, conferência, histórico
+- **Comissões**: listagem, resumo, pagamento individual/lote
+- **Observações/Histórico cliente**: adicionar, listar, histórico unificado
+- **Concluir agendamento**: barbeiro/admin
 - Arquivos estáticos: CSP, proteção path traversal
 
 ---
@@ -88,14 +95,18 @@ npm test
 
 ```
 server.js            # Servidor HTTP, estáticos, headers de segurança
-src/db.js            # SQLite, tabelas, admin inicial
+src/db.js            # SQLite, tabelas (incl. Fase 3: produtos, vendas, caixa, comissões, observações), admin inicial
 src/senha.js         # Hash scrypt
 src/auth.js          # Sessões, cookie HttpOnly, rate limit, RBAC
 src/http.js          # Mini-router nativo
-src/validar.js       # Validação de entrada (email, data ISO, inteiros, etc.)
-src/routes.js        # Rotas da API (auth, serviços, barbeiros, agendamentos, bloqueios)
+src/validar.js       # Validação de entrada (email, data ISO, inteiros, Fase 3: produto, venda, caixa, comissão, observação)
+src/routes.js        # Rotas da API (auth, serviços, barbeiros, agendamentos, bloqueios, Fase 3: produtos, comissão/serviço, vendas, caixa, comissões, observações/histórico)
 public/              # Telas (HTML/CSS/JS puro, sem innerHTML)
-test/api.test.js     # Testes de integração da API
+  admin.html         # Admin: abas Serviços, Barbeiros, Agenda, Bloqueios, Produtos, Caixa, Comissões, Clientes
+  barbeiro.html      # Barbeiro: abas Agenda, Jornada, Serviços, Comissões, Clientes
+  js/admin.js        # Lógica UI admin (Fase 3: produtos, caixa, pdv, comissões)
+  js/barbeiro.js     # Lógica UI barbeiro (Fase 3: comissões, histórico clientes)
+test/api.test.js     # Testes de integração da API (35 testes)
 ```
 
 ---
