@@ -1,6 +1,6 @@
-# Navalha — Sistema de Barbearia (Fase 1 + 2 completa)
+# Navalha — Sistema de Barbearia (Fase 1 + 2 + 3 completa)
 
-Sistema completo de gestão para barbearia: **autenticação por papel**, **serviços**, **barbeiros**, **jornada**, **agendamentos** e **bloqueios**.
+Sistema completo de gestão para barbearia: **autenticação por papel**, **serviços**, **barbeiros**, **jornada**, **agendamentos**, **bloqueios**, **produtos/estoque**, **PDV/vendas**, **caixa**, **comissões** e **histórico do cliente**.
 
 Zero dependências externas — apenas APIs nativas do Node (HTTP, SQLite, crypto, test).
 
@@ -55,6 +55,16 @@ Se não houver administrador no banco, o sistema cria um e mostra **e-mail e sen
 - **Barbeiro**: vê agenda do dia, confirma/cancela/conclui seus agendamentos
 - **Admin**: visão geral com filtros (data, barbeiro, status), CRUD de bloqueios (por barbeiro ou global/feriado)
 - **Regras**: impede conflito de horário, fora da jornada, serviço que barbeiro não atende, bloqueios admin
+
+### Fase 3 — Operação & Financeiro
+- **Produtos & Estoque**: CRUD completo (SKU, custo, preço, qtd mínima), entrada de estoque, alerta de estoque baixo
+- **Comissão por serviço**: regra específica (percentual ou fixo) que sobrescreve a comissão padrão do barbeiro
+- **PDV / Vendas Walk-in**: venda de serviço e/ou produto, múltiplas formas de pagamento (dinheiro, cartão, PIX, misto), desconto, troco automático, **baixa de estoque** e **cálculo de comissão** automático
+- **Caixa**: abertura/fechamento diário com valor inicial, sangrias (retiradas), conferência automática (inicial + vendas − sangrias = esperado), diferença reportada no fechamento
+- **Comissões**: geração automática na venda, listagem com filtros (barbeiro, status, período), resumo por barbeiro (a receber/pago/total), pagamento individual e em lote
+- **Observações do cliente**: barbeiro adiciona anotações privadas por cliente
+- **Histórico do cliente**: visão unificada (agendamentos concluídos + vendas walk-in + observações) acessível pelo barbeiro
+- **Concluir agendamento**: barbeiro/admin marcam como concluído → gera comissão + aparece no histórico
 
 ---
 
