@@ -27,25 +27,51 @@ npm test                # valida tudo
 
 ---
 
-## 🔄 Fase 2 — Agendamentos (PRÓXIMA)
+## ✅ Fase 2 — Agendamentos (CONCLUÍDA)
 
 **Objetivo:** Cliente agenda, barbeiro/admin veem agenda, cancelamento.
 
 | Item | Status | Detalhes / Regras |
 |------|--------|-------------------|
-| Cálculo de horários livres | `[ ]` | Jornada − agendamentos confirmados − bloqueios manuais |
-| `GET /api/horarios-livres?barbeiro=&data=&servico=` | `[ ]` | Retorna slots de 15/30 min conforme duração do serviço |
-| `POST /api/agendamentos` (cliente) | `[ ]` | Cria em `pendente`, valida horário livre, conflitos |
-| `PUT /api/agendamentos/:id/confirmar` (barbeiro/admin) | `[ ]` | Muda para `confirmado` |
-| `PUT /api/agendamentos/:id/cancelar` | `[ ]` | Cliente (até 2h antes), barbeiro/admin (qualquer hora) |
-| `GET /api/minha-agenda` (cliente) | `[ ]` | Próximos + histórico |
-| `GET /api/agenda-barbeiro?data=` (barbeiro) | `[ ]` | Dia/semana/mês, filtro status |
-| `GET /api/agenda-admin?data=&barbeiro=` (admin) | `[ ]` | Visão geral, drag-and-drop futuro |
-| Bloqueios manuais (admin) | `[ ]` | "Feriado", "manutenção", "almoço estendido" |
-| Notificação simples (log/console) | `[ ]` | Base para Fase 4 (WhatsApp/e-mail) |
+| Cálculo de horários livres | `[x]` | Jornada − agendamentos confirmados − bloqueios manuais |
+| `GET /api/horarios-livres?barbeiro=&data=&servico=` | `[x]` | Retorna slots de 15/30 min conforme duração do serviço |
+| `POST /api/agendamentos` (cliente) | `[x]` | Cria em `pendente`, valida horário livre, conflitos |
+| `PUT /api/agendamentos/:id/confirmar` (barbeiro/admin) | `[x]` | Muda para `confirmado` |
+| `PUT /api/agendamentos/:id/cancelar` | `[x]` | Cliente (até 2h antes), barbeiro/admin (qualquer hora) |
+| `GET /api/minha-agenda` (cliente) | `[x]` | Próximos + histórico |
+| `GET /api/agenda-barbeiro?data=` (barbeiro) | `[x]` | Dia/semana/mês, filtro status |
+| `GET /api/agenda-admin?data=&barbeiro=` (admin) | `[x]` | Visão geral, drag-and-drop futuro |
+| Bloqueios manuais (admin) | `[x]` | "Feriado", "manutenção", "almoço estendido" |
+| Notificação simples (log/console) | `[x]` | Base para Fase 4 (WhatsApp/e-mail) |
 
 **Entregável de validação:**
  Cliente agenda → barbeiro vê na agenda → admin vê tudo → cancelamento libera horário.
+
+---
+
+## 🔄 Fase 3 — Operação Diária & Financeiro (EM ANDAMENTO)
+
+**Objetivo:** Dinheiro na mão, barbeiro pago, estoque controlado.
+
+| Módulo | Itens | Status |
+|--------|-------|--------|
+| **PDV (Ponto de Venda)** | `[ ]` Atendimento *walk-in* (sem agendamento) | `[ ]` |
+| | `[ ]` Venda de produtos (shampoo, pomada, etc.) | `[ ]` |
+| | `[ ]` Formas de pagamento: dinheiro, cartão, PIX | `[ ]` |
+| | `[ ]` Fechamento de caixa (resumo + sangrias) | `[ ]` |
+| **Comissão** | `[ ]` Regra por serviço (% ou fixo) | `[ ]` |
+| | `[ ]` Regra por produto (% ou fixo) | `[ ]` |
+| | `[ ]` Relatório "a receber" por barbeiro/período | `[ ]` |
+| | `[ ]` Pagamento de comissão (marcar como pago) | `[ ]` |
+| **Estoque** | `[ ]` Cadastro de produtos (SKU, custo, preço, qtd mínima) | `[ ]` |
+| | `[ ]` Baixa automática no PDV | `[ ]` |
+| | `[ ]` Alerta de reposição (aba "Estoque baixo") | `[ ]` |
+| | `[ ]` Entrada manual / nota fiscal de compra | `[ ]` |
+| **Caixa** | `[ ]` Abertura/fechamento diário com valores iniciais | `[ ]` |
+| | `[ ]` Relatório: total dinheiro, cartão, PIX, comissões, diff | `[ ]` |
+| **Histórico do Cliente** | `[ ]` Cortes anteriores (serviço, barbeiro, data, valor) | `[ ]` |
+| | `[ ]` Produtos comprados | `[ ]` |
+| | `[ ]` Anotações livres do barbeiro ("gosta topo baixo") | `[ ]` |
 
 ---
 

@@ -135,7 +135,99 @@ function bloqueioDados(valor) {
   return { inicio, fim, motivo };
 }
 
+// Fase 3: Validações PDV, Produtos, Caixa, Comissão
+
+function formaPagamento(valor) {
+  const permitidas = ['dinheiro', 'cartao', 'pix', 'misto'];
+  const v = texto(valor, 'A forma de pagamento');
+  if (!permitidas.includes(v)) throw new ErroHttp(400, 'Forma de pagamento inválida.');
+  return v;
+}
+
+function produtoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados do produto inválidos.');
+  const sku = texto(valor.sku, 'O SKU', { max: 30 }).toUpperCase();
+  if (!/^[A-Z0-9\-]{3,30}$/.test(sku)) throw new ErroHttp(400, 'SKU deve ter 3-30 caracteres (A-Z, 0-9, hífen).');
+  const nome = texto(valor.nome, 'O nome', { max: 80 });
+  const descricao = texto(valor.descricao, 'A descrição', { max: 200, opcional: true });
+  const custo = inteiro(valor.custo_centavos, 'O custo', { min: 0, max: 1_000_000 });
+  const preco = inteiro(valor.preco_centavos, 'O preço', { min: 0, max: 1_000_000 });
+  const quantidade = inteiro(valor.quantidade ?? 0, 'A quantidade', { min: 0, max: 10000 });
+  const qtd_minima = inteiro(valor.qtd_minima ?? 0, 'A quantidade mínima', { min: 0, max: 1000 });
+  const comissao_pct = inteiro(valor.comissao_pct ?? 0, 'A comissão %', { min: 0, max: 100 });
+  const comissao_fixo = inteiro(valor.comissao_fixo ?? 0, 'A comissão fixa (centavos)', { min: 0, max: 100000 });
+  const ativo = booleano(valor.ativo, 'ativo', true);
+  return { sku, nome, descricao, custo_centavos: custo, preco_centavos: preco, quantidade, qtd_minima, comissao_pct, comissao_fixo, ativo };
+}
+
+function servicoComissaoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados de comissão do serviço inválidos.');
+  const tipo = texto(valor.tipo, 'O tipo');
+  if (!['percentual', 'fixo'].includes(tipo)) throw new ErroHttp(400, 'Tipo deve ser "percentual" ou "fixo".');
+  const valorNum = inteiro(valor.valor, 'O valor', { min: 0 });
+  if (tipo === 'percentual' && valorNum > 10000) throw new ErroHttp(400, 'Percentual máximo é 100% (10000).');
+  return { tipo, valor: valorNum };
+}
+
+function vendaDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados da venda inválidos.');
+  const cliente_id = valor.cliente_id ? inteiro(valor.cliente_id, 'O cliente', { min: 1 }) : null;
+  const barbeiro_id = inteiro(valor.barbeiro_id, 'O barbeiro', { min: 1 });
+  const itens = valor.itens;
+  if (!Array.isArray(itens) || itens.length === 0) throw new ErroHttp(400, 'A venda deve ter pelo menos um item.');
+  const forma_pagamento = formaPagamento(valor.forma_pagamento);
+  const dinheiro_recebido = inteiro(valor.dinheiro_recebido ?? 0, 'O dinheiro recebido', { min: 0 });
+  const desconto_centavos = inteiro(valor.desconto_centavos ?? 0, 'O desconto', { min: 0 });
+  const observacao = texto(valor.observacao, 'A observação', { max: 200, opcional: true });
+  return { cliente_id, barbeiro_id, itens, forma_pagamento, dinheiro_recebido, desconto_centavos, observacao };
+}
+
+function vendaItemDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Item da venda inválido.');
+  const tipo = texto(valor.tipo, 'O tipo do item');
+  if (!['servico', 'produto'].includes(tipo)) throw new ErroHttp(400, 'Tipo deve ser "servico" ou "produto".');
+  const referencia_id = inteiro(valor.referencia_id, 'O ID de referência', { min: 1 });
+  const quantidade = inteiro(valor.quantidade ?? 1, 'A quantidade', { min: 1, max: 100 });
+  return { tipo, referencia_id, quantidade };
+}
+
+function caixaAberturaDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados de abertura inválidos.');
+  const valor_inicial = inteiro(valor.valor_inicial_centavos ?? 0, 'O valor inicial', { min: 0, max: 10_000_000 });
+  const observacao = texto(valor.observacao, 'A observação', { max: 200, opcional: true });
+  return { valor_inicial_centavos: valor_inicial, observacao };
+}
+
+function caixaFechamentoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados de fechamento inválidos.');
+  const valor_final = inteiro(valor.valor_final_centavos, 'O valor final', { min: 0, max: 10_000_000 });
+  const observacao = texto(valor.observacao, 'A observação', { max: 200, opcional: true });
+  return { valor_final_centavos: valor_final, observacao };
+}
+
+function sangriaDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados da sangria inválidos.');
+  const valor_centavos = inteiro(valor.valor_centavos, 'O valor', { min: 1, max: 1_000_000 });
+  const motivo = texto(valor.motivo, 'O motivo', { max: 100, opcional: true });
+  return { valor_centavos, motivo };
+}
+
+function comissaoPagamentoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados de pagamento inválidos.');
+  const observacao = texto(valor.observacao, 'A observação', { max: 200, opcional: true });
+  return { observacao };
+}
+
+function observacaoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados da observação inválidos.');
+  const conteudo = texto(valor.conteudo, 'O conteúdo', { min: 1, max: 500 });
+  return { conteudo };
+}
+
 module.exports = {
   texto, email, senha, telefone, inteiro, booleano, idDaUrl, listaDeIds, jornada,
   dataISO, dataHoraISO, statusAgendamento, bloqueioDados, paraMinutos,
+  // Fase 3
+  formaPagamento, produtoDados, servicoComissaoDados, vendaDados, vendaItemDados,
+  caixaAberturaDados, caixaFechamentoDados, sangriaDados, comissaoPagamentoDados, observacaoDados,
 };

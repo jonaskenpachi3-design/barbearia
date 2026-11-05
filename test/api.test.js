@@ -457,3 +457,372 @@ test('bloqueios: bloqueio global (sem barbeiro) afeta todos', async () => {
   const r2 = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro2.id, servico_id: corte.id, inicio }, cliente);
   assert.equal(r2.status, 409);
 });
+
+// ───────────────────────── Fase 3: Operação & Financeiro ─────────────────────────
+
+// Helper para Fase 3: cria cenário com caixa aberto
+async function criarCenarioFase3(sufixo) {
+  const admin = await loginAdmin();
+  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte' + sufixo, duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barba = (await chamar('POST', '/api/servicos', { nome: 'Barba' + sufixo, duracao_min: 20, preco_centavos: 3000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João' + sufixo, email: 'joao' + sufixo + '@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [corte.id, barba.id],
+  }, admin)).corpo.barbeiro;
+
+  // Jornada: seg-sex 09:00-18:00
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  // Abre caixa (ou usa existente)
+  const hoje = new Date().toISOString().split('T')[0];
+  let caixaAberto = await chamar('POST', '/api/caixa/abrir', { valor_inicial_centavos: 10000, observacao: 'Teste' }, admin);
+  if (caixaAberto.status === 409) {
+    // Caixa já existe, obtém o aberto
+    caixaAberto = await chamar('GET', '/api/caixa/aberto', undefined, admin);
+    assert.ok(caixaAberto.corpo.caixa, 'Deveria haver um caixa aberto');
+  } else {
+    assert.equal(caixaAberto.status, 201);
+  }
+
+  const cliente = (await chamar('POST', '/api/auth/cadastro', {
+    nome: 'Cliente' + sufixo, email: 'cliente' + sufixo + '@teste.com', senha: 'senha1234',
+  })).cookie;
+
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao' + sufixo + '@barbearia.com', senha: 'senha1234' });
+
+  return { admin, corte, barba, barbeiro, cliente, loginBarbeiro };
+}
+
+test('produtos: CRUD completo', async () => {
+  const admin = await loginAdmin();
+
+  // Criar
+  const criado = await chamar('POST', '/api/produtos', {
+    sku: 'SHAMP-001', nome: 'Shampoo 250ml', descricao: 'Shampoo profissional',
+    custo_centavos: 1500, preco_centavos: 3500, quantidade: 20, qtd_minima: 5,
+    comissao_pct: 10, comissao_fixo: 0, ativo: true,
+  }, admin);
+  assert.equal(criado.status, 201);
+  assert.equal(criado.corpo.produto.sku, 'SHAMP-001');
+  assert.equal(criado.corpo.produto.quantidade, 20);
+  const id = criado.corpo.produto.id;
+
+  // Listar
+  const lista = await chamar('GET', '/api/produtos', undefined, admin);
+  assert.equal(lista.corpo.produtos.length, 1);
+  assert.equal(lista.corpo.produtos[0].nome, 'Shampoo 250ml');
+
+  // Editar
+  const editado = await chamar('PUT', `/api/produtos/${id}`, {
+    sku: 'SHAMP-001', nome: 'Shampoo 250ml', descricao: 'Atualizado',
+    custo_centavos: 1600, preco_centavos: 3600, quantidade: 20, qtd_minima: 5,
+    comissao_pct: 10, comissao_fixo: 0, ativo: true,
+  }, admin);
+  assert.equal(editado.status, 200);
+  assert.equal(editado.corpo.produto.descricao, 'Atualizado');
+  assert.equal(editado.corpo.produto.preco_centavos, 3600);
+
+  // Entrada de estoque
+  const entrada = await chamar('POST', `/api/produtos/${id}/entrada`, { quantidade: 10 }, admin);
+  assert.equal(entrada.status, 200);
+  assert.equal(entrada.corpo.produto.quantidade, 30);
+
+  // SKU duplicado falha
+  const dup = await chamar('POST', '/api/produtos', {
+    sku: 'SHAMP-001', nome: 'Outro', custo_centavos: 1000, preco_centavos: 2000, quantidade: 1,
+  }, admin);
+  assert.equal(dup.status, 409);
+});
+
+test('produtos: alerta de estoque baixo', async () => {
+  const admin = await loginAdmin();
+  await chamar('POST', '/api/produtos', {
+    sku: 'POMADE-001', nome: 'Pomada', custo_centavos: 2000, preco_centavos: 5000,
+    quantidade: 2, qtd_minima: 5, comissao_pct: 15,
+  }, admin);
+
+  const baixo = await chamar('GET', '/api/produtos/baixo-estoque', undefined, admin);
+  assert.equal(baixo.corpo.produtos.length, 1);
+  assert.equal(baixo.corpo.produtos[0].nome, 'Pomada');
+  assert.equal(baixo.corpo.produtos[0].estoque_baixo, true);
+});
+
+test('servico comissao: define e remove regra específica', async () => {
+  const admin = await loginAdmin();
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Especial', duracao_min: 45, preco_centavos: 6000 }, admin)).corpo.servico;
+
+  // Sem regra = usa comissão do barbeiro
+  const semRegra = await chamar('GET', `/api/servicos/${servico.id}/comissao`, undefined, admin);
+  assert.equal(semRegra.corpo.comissao, null);
+
+  // Define regra percentual (50% = 5000 centésimos)
+  const regra = await chamar('PUT', `/api/servicos/${servico.id}/comissao`, { tipo: 'percentual', valor: 5000 }, admin);
+  assert.equal(regra.status, 200);
+  assert.equal(regra.corpo.comissao.tipo, 'percentual');
+  assert.equal(regra.corpo.comissao.valor, 5000);
+
+  // Verifica
+  const comRegra = await chamar('GET', `/api/servicos/${servico.id}/comissao`, undefined, admin);
+  assert.equal(comRegra.corpo.comissao.valor, 5000);
+
+  // Remove
+  await chamar('DELETE', `/api/servicos/${servico.id}/comissao`, undefined, admin);
+  const removida = await chamar('GET', `/api/servicos/${servico.id}/comissao`, undefined, admin);
+  assert.equal(removida.corpo.comissao, null);
+});
+
+test('pdv: venda de serviço walk-in', async () => {
+  const { admin, corte, barbeiro, loginBarbeiro } = await criarCenarioFase3('_pdv1');
+
+  const r = await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: corte.id, quantidade: 1 }],
+    forma_pagamento: 'dinheiro',
+    dinheiro_recebido: 5000,
+    desconto_centavos: 0,
+  }, loginBarbeiro.cookie);
+  assert.equal(r.status, 201);
+  assert.equal(r.corpo.venda.total_centavos, 4000);
+  assert.equal(r.corpo.venda.troco_centavos, 1000);
+  assert.equal(r.corpo.venda.forma_pagamento, 'dinheiro');
+  // Comissão calculada (40% de 4000 = 1600 centavos = 16,00)
+  assert.equal(r.corpo.venda.itens[0].comissao_centavos, 1600);
+});
+
+test('pdv: venda de produto com baixa de estoque', async () => {
+  const { admin, barbeiro, loginBarbeiro } = await criarCenarioFase3('_pdv2');
+
+  const produto = (await chamar('POST', '/api/produtos', {
+    sku: 'OLEO-001', nome: 'Óleo para barba', custo_centavos: 1000, preco_centavos: 3000,
+    quantidade: 10, qtd_minima: 2, comissao_pct: 10,
+  }, admin)).corpo.produto;
+
+  const r = await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'produto', referencia_id: produto.id, quantidade: 2 }],
+    forma_pagamento: 'pix',
+    desconto_centavos: 0,
+  }, loginBarbeiro.cookie);
+  assert.equal(r.status, 201);
+  assert.equal(r.corpo.venda.total_centavos, 6000);
+  assert.equal(r.corpo.venda.forma_pagamento, 'pix');
+  // Comissão do produto: 10% de 6000 = 600 centavos
+  assert.equal(r.corpo.venda.itens[0].comissao_centavos, 600);
+
+  // Verifica baixa de estoque
+  const p = await chamar('GET', '/api/produtos', undefined, admin);
+  assert.equal(p.corpo.produtos.find(x => x.id === produto.id).quantidade, 8);
+});
+
+test('pdv: venda mista (serviço + produto) com desconto', async () => {
+  const { admin, corte, barbeiro, loginBarbeiro } = await criarCenarioFase3('_pdv3');
+
+  const produto = (await chamar('POST', '/api/produtos', {
+    sku: 'BALM-001', nome: 'Balm', custo_centavos: 800, preco_centavos: 2500,
+    quantidade: 15, qtd_minima: 3, comissao_pct: 10,
+  }, admin)).corpo.produto;
+
+  const r = await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [
+      { tipo: 'servico', referencia_id: corte.id, quantidade: 1 },
+      { tipo: 'produto', referencia_id: produto.id, quantidade: 1 },
+    ],
+    forma_pagamento: 'cartao',
+    desconto_centavos: 500, // 5,00 de desconto
+  }, loginBarbeiro.cookie);
+  assert.equal(r.status, 201);
+  // Subtotal = 4000 + 2500 = 6500, desconto 500 = total 6000
+  assert.equal(r.corpo.venda.total_centavos, 6000);
+  assert.equal(r.corpo.venda.desconto_centavos, 500);
+});
+
+test('comissoes: geradas na venda, listagem e pagamento em lote', async () => {
+  const { admin, corte, barbeiro, loginBarbeiro } = await criarCenarioFase3('_com1');
+
+  // Conta comissões existentes para este barbeiro
+  const antes = await chamar('GET', `/api/comissoes?barbeiro=${barbeiro.id}`, undefined, admin);
+  const countAntes = antes.corpo.comissoes.length;
+
+  // Faz uma venda
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: corte.id, quantidade: 1 }],
+    forma_pagamento: 'dinheiro',
+    dinheiro_recebido: 5000,
+  }, loginBarbeiro.cookie);
+
+  // Lista comissões (filtrando pelo barbeiro do teste)
+  const lista = await chamar('GET', `/api/comissoes?barbeiro=${barbeiro.id}`, undefined, admin);
+  assert.equal(lista.corpo.comissoes.length, countAntes + 1);
+  const novaComissao = lista.corpo.comissoes.find(c => c.valor_centavos === 1600 && c.status === 'a_receber');
+  assert.ok(novaComissao, 'Nova comissão deve ser criada');
+  assert.equal(novaComissao.valor_centavos, 1600); // 40% de 4000
+  const comissaoId = novaComissao.id;
+
+  // Resumo
+  const resumo = await chamar('GET', '/api/comissoes/resumo', undefined, admin);
+  assert.ok(resumo.corpo.resumo.length >= 1);
+
+  // Paga a comissão
+  const pago = await chamar('PUT', `/api/comissoes/${comissaoId}/pagar`, { observacao: 'Pago em dinheiro' }, admin);
+  assert.equal(pago.status, 200);
+  assert.equal(pago.corpo.comissao.status, 'pago');
+
+  // Verifica no resumo
+  const resumo2 = await chamar('GET', '/api/comissoes/resumo', undefined, admin);
+  const barbeiroResumo = resumo2.corpo.resumo.find(r => r.barbeiro_id === barbeiro.id);
+  assert.ok(barbeiroResumo, 'Resumo deve conter o barbeiro');
+  assert.equal(barbeiroResumo.pago, 1600);
+});
+
+test('comissoes: pagamento em lote', async () => {
+  const { admin, corte, barbeiro, loginBarbeiro } = await criarCenarioFase3('_com2');
+
+  // Conta comissões existentes
+  const antes = await chamar('GET', `/api/comissoes?barbeiro=${barbeiro.id}`, undefined, admin);
+  const countAntes = antes.corpo.comissoes.filter(c => c.status === 'a_receber').length;
+
+  // Duas vendas
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: corte.id, quantidade: 1 }],
+    forma_pagamento: 'dinheiro', dinheiro_recebido: 5000,
+  }, loginBarbeiro.cookie);
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: corte.id, quantidade: 1 }],
+    forma_pagamento: 'pix',
+  }, loginBarbeiro.cookie);
+
+  const lista = await chamar('GET', `/api/comissoes?barbeiro=${barbeiro.id}`, undefined, admin);
+  const novasComissoes = lista.corpo.comissoes.filter(c => c.valor_centavos === 1600 && c.status === 'a_receber');
+  assert.equal(novasComissoes.length, 2);
+  const ids = novasComissoes.map(c => c.id);
+
+  // Paga em lote
+  const lote = await chamar('PUT', '/api/comissoes/lote/pagar', { ids }, admin);
+  assert.equal(lote.status, 200);
+  assert.equal(lote.corpo.pagas, 2);
+
+  const lista2 = await chamar('GET', `/api/comissoes?barbeiro=${barbeiro.id}`, undefined, admin);
+  const naoPagas = lista2.corpo.comissoes.filter(c => c.status === 'a_receber' && c.valor_centavos === 1600);
+  assert.equal(naoPagas.length, 0); // Todas as novas comissoes devem estar pagas
+});
+
+test('cliente observacoes: barbeiro adiciona anotação', async () => {
+  const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_obs1');
+
+  // Cria agendamento e conclui para ter cliente no histórico
+  const data = new Date().toISOString().split('T')[0];
+  const inicio = `${data}T10:00:00`;
+  const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
+  await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/confirmar`, {}, loginBarbeiro.cookie);
+  await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/concluir`, {}, loginBarbeiro.cookie);
+
+  const clienteId = ag.corpo.agendamento.cliente_id;
+
+  // Adiciona observação
+  const obs = await chamar('POST', `/api/clientes/${clienteId}/observacoes`, { conteudo: 'Prefere corte reto, topo baixo' }, loginBarbeiro.cookie);
+  assert.equal(obs.status, 201);
+  assert.equal(obs.corpo.observacao.conteudo, 'Prefere corte reto, topo baixo');
+
+  // Lista observações
+  const lista = await chamar('GET', `/api/clientes/${clienteId}/observacoes`, undefined, loginBarbeiro.cookie);
+  assert.equal(lista.corpo.observacoes.length, 1);
+});
+
+test('cliente historico: agendamentos, vendas e observações', async () => {
+  const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_hist1');
+
+  // Agendamento
+  const data = new Date().toISOString().split('T')[0];
+  const inicio = `${data}T10:00:00`;
+  const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
+  await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/confirmar`, {}, loginBarbeiro.cookie);
+  await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/concluir`, {}, loginBarbeiro.cookie);
+
+  // Venda walk-in (com cliente_id para aparecer no histórico)
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    cliente_id: ag.corpo.agendamento.cliente_id,
+    itens: [{ tipo: 'servico', referencia_id: corte.id, quantidade: 1 }],
+    forma_pagamento: 'cartao',
+  }, loginBarbeiro.cookie);
+
+  // Observação
+  const clienteId = ag.corpo.agendamento.cliente_id;
+  await chamar('POST', `/api/clientes/${clienteId}/observacoes`, { conteudo: 'Teste' }, loginBarbeiro.cookie);
+
+  // Histórico
+  const hist = await chamar('GET', `/api/clientes/${clienteId}/historico`, undefined, loginBarbeiro.cookie);
+  assert.equal(hist.corpo.agendamentos.length, 1);
+  assert.equal(hist.corpo.vendas.length, 1);
+  assert.equal(hist.corpo.observacoes.length, 1);
+});
+
+test('agendamentos: barbeiro/admin conclui agendamento', async () => {
+  const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_ag11');
+  const data = new Date().toISOString().split('T')[0];
+  const inicio = `${data}T10:00:00`;
+
+  const criado = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
+  const id = criado.corpo.agendamento.id;
+
+  await chamar('PUT', `/api/agendamentos/${id}/confirmar`, {}, loginBarbeiro.cookie);
+  const r = await chamar('PUT', `/api/agendamentos/${id}/concluir`, {}, loginBarbeiro.cookie);
+  assert.equal(r.status, 200);
+  assert.equal(r.corpo.agendamento.status, 'concluido');
+});
+
+// ─── Caixa test (executa por último para não fechar o caixa dos outros testes) ───
+test('caixa: abrir, sangria, fechar', async () => {
+  const admin = await loginAdmin();
+
+  // Tenta abrir caixa - se já existir um aberto, usa ele
+  let aberto = await chamar('POST', '/api/caixa/abrir', { valor_inicial_centavos: 5000, observacao: 'Início do dia' }, admin);
+
+  let caixaId;
+  if (aberto.status === 409) {
+    // Caixa já existe, obtém o aberto
+    const existente = await chamar('GET', '/api/caixa/aberto', undefined, admin);
+    assert.ok(existente.corpo.caixa, 'Deveria haver um caixa aberto');
+    caixaId = existente.corpo.caixa.id;
+  } else {
+    assert.equal(aberto.status, 201);
+    assert.equal(aberto.corpo.caixa.status, 'aberto');
+    caixaId = aberto.corpo.caixa.id;
+  }
+
+  // Verifica caixa aberto
+  const caixaAberto = await chamar('GET', '/api/caixa/aberto', undefined, admin);
+  assert.equal(caixaAberto.corpo.caixa.id, caixaId);
+  assert.equal(caixaAberto.corpo.caixa.status, 'aberto');
+
+  // Sangria
+  const sangria = await chamar('POST', `/api/caixa/${caixaId}/sangria`, { valor_centavos: 2000, motivo: 'Pagamento fornecedor' }, admin);
+  assert.equal(sangria.status, 200);
+  assert.equal(sangria.corpo.caixa.sangrias_centavos, 2000);
+
+  // Fechar caixa - calcula valor esperado: inicial + vendas - sangrias
+  // O caixa pode ter vendas de testes anteriores, então soma as vendas concluídas
+  const caixaAtual = await chamar('GET', `/api/caixa/${caixaId}`, undefined, admin);
+  const valorInicial = caixaAtual.corpo.caixa.valor_inicial_centavos;
+  const sangrias = caixaAtual.corpo.caixa.sangrias_centavos;
+  const vendas = caixaAtual.corpo.vendas || [];
+  const totalVendas = vendas
+    .filter(v => v.status === 'concluida')
+    .reduce((s, v) => s + (v.total_centavos || 0), 0);
+  const esperado = valorInicial + totalVendas - sangrias;
+
+  const fechado = await chamar('PUT', `/api/caixa/${caixaId}/fechar`, { valor_final_centavos: esperado, observacao: 'Fim do dia' }, admin);
+  assert.equal(fechado.status, 200);
+  assert.equal(fechado.corpo.caixa.status, 'fechado');
+  assert.equal(fechado.corpo.caixa.valor_final_centavos, esperado);
+  assert.equal(fechado.corpo.diferenca, 0);
+
+  // Não pode fechar duas vezes
+  const dup = await chamar('PUT', `/api/caixa/${caixaId}/fechar`, { valor_final_centavos: esperado }, admin);
+  assert.equal(dup.status, 400);
+});

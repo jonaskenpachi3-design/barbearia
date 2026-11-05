@@ -21,6 +21,8 @@
     <button class="tab" role="tab" id="tab-agenda" aria-selected="true" type="button">Agenda de hoje</button>
     <button class="tab" role="tab" id="tab-jornada" aria-selected="false" type="button">Minha jornada</button>
     <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
+    <button class="tab" role="tab" id="tab-comissoes" aria-selected="false" type="button">Comissões</button>
+    <button class="tab" role="tab" id="tab-clientes" aria-selected="false" type="button">Clientes</button>
   </nav>
 
   <section class="tabpanel" id="panel-agenda" role="tabpanel" aria-labelledby="tab-agenda">
@@ -46,6 +48,27 @@
     <h2 class="display section-title">Serviços que atendo</h2>
     <div class="chips" id="servicos"></div>
     <p class="muted small" id="comissao"></p>
+  </section>
+
+  <section class="tabpanel" id="panel-comissoes" role="tabpanel" aria-labelledby="tab-comissoes" hidden>
+    <div class="card" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
+      <select class="input" id="bc-status" style="flex: 1; min-width: 160px;">
+        <option value="">Todos os status</option>
+        <option value="a_receber">A receber</option>
+        <option value="pago">Pagas</option>
+      </select>
+      <input class="input" id="bc-data-inicio" type="date" style="flex: 1; min-width: 160px;" placeholder="Data início">
+      <input class="input" id="bc-data-fim" type="date" style="flex: 1; min-width: 160px;" placeholder="Data fim">
+    </div>
+    <div class="tabela" id="bc-tabela"></div>
+    <div class="tabela" id="bc-resumo" style="margin-top: 16px;"></div>
+  </section>
+
+  <section class="tabpanel" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes" hidden>
+    <div class="card" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
+      <input class="input" id="bcl-busca" type="text" placeholder="Buscar cliente..." style="flex: 1; min-width: 200px;">
+    </div>
+    <div class="list" id="bcl-lista"></div>
   </section>
 </main>
 <script src="js/app.js"></script>

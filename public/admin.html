@@ -16,6 +16,10 @@
       <button class="nav-btn" id="nav-barbeiros" type="button">Barbeiros</button>
       <button class="nav-btn" id="nav-agenda" type="button">Agenda</button>
       <button class="nav-btn" id="nav-bloqueios" type="button">Bloqueios</button>
+      <button class="nav-btn" id="nav-produtos" type="button">Produtos</button>
+      <button class="nav-btn" id="nav-pdv" type="button">PDV</button>
+      <button class="nav-btn" id="nav-caixa" type="button">Caixa</button>
+      <button class="nav-btn" id="nav-comissoes" type="button">Comissões</button>
     </nav>
     <div class="side-user">
       <span class="avatar" id="avatar" aria-hidden="true"></span>
@@ -78,6 +82,106 @@
         </select>
       </div>
       <div class="tabela" id="tabela-bloqueios"></div>
+    </section>
+
+    <section id="view-produtos" aria-labelledby="titulo-produtos" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-produtos">Produtos</h1>
+        <button class="btn btn-primary" id="novo-produto" type="button">+ Novo produto</button>
+      </div>
+      <div class="tabela" id="tabela-produtos"></div>
+    </section>
+
+    <section id="view-pdv" aria-labelledby="titulo-pdv" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-pdv">PDV — Ponto de Venda</h1>
+        <div id="pdv-caixa-status" class="small muted" style="margin-top: 8px;"></div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px;">
+        <div>
+          <div class="field">
+            <label for="pdv-cliente">Cliente (opcional — walk-in se vazio)</label>
+            <select class="input" id="pdv-cliente">
+              <option value="">Walk-in (sem cliente)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pdv-barbeiro">Barbeiro responsável</label>
+            <select class="input" id="pdv-barbeiro" required></select>
+          </div>
+          <div class="field">
+            <span class="label">Itens da venda</span>
+            <div class="tabela" id="pdv-itens"></div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+            <button class="btn btn-primary" id="pdv-add-servico" type="button">+ Adicionar serviço</button>
+            <button class="btn btn-primary" id="pdv-add-produto" type="button">+ Adicionar produto</button>
+          </div>
+        </div>
+        <aside>
+          <div class="card" style="padding: 16px;">
+            <h3 class="display" style="font-size: 1.1rem; margin-bottom: 12px;">Resumo</h3>
+            <div class="field" style="margin-bottom: 8px;">
+              <label>Subtotal</label>
+              <div class="display" id="pdv-subtotal" style="font-size: 1.2rem;">R$ 0,00</div>
+            </div>
+            <div class="field" style="margin-bottom: 8px;">
+              <label for="pdv-desconto">Desconto (R$)</label>
+              <input class="input" id="pdv-desconto" type="text" inputmode="decimal" placeholder="0,00" style="width: 100%;">
+            </div>
+            <div class="field" style="margin-bottom: 8px;">
+              <label>Total</label>
+              <div class="display" id="pdv-total" style="font-size: 1.5rem; font-weight: 700; color: var(--cor-primaria);">R$ 0,00</div>
+            </div>
+            <div class="field" style="margin-bottom: 8px;">
+              <label for="pdv-forma">Forma de pagamento</label>
+              <select class="input" id="pdv-forma" required>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="cartao">Cartão</option>
+                <option value="pix">PIX</option>
+                <option value="misto">Misto</option>
+              </select>
+            </div>
+            <div class="field" id="pdv-dinheiro-wrap" style="margin-bottom: 8px;">
+              <label for="pdv-dinheiro">Dinheiro recebido (R$)</label>
+              <input class="input" id="pdv-dinheiro" type="text" inputmode="decimal" placeholder="0,00" style="width: 100%;">
+            </div>
+            <div class="field" id="pdv-troco-wrap" style="margin-bottom: 16px;">
+              <label>Troco</label>
+              <div class="display" id="pdv-troco" style="font-size: 1.2rem;">R$ 0,00</div>
+            </div>
+            <button class="btn btn-primary" id="pdv-finalizar" type="button" style="width: 100%; padding: 14px; font-size: 1.1rem;">Finalizar venda</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-caixa" aria-labelledby="titulo-caixa" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-caixa">Caixa</h1>
+        <button class="btn btn-primary" id="caixa-abrir" type="button">Abrir caixa</button>
+      </div>
+      <div class="tabela" id="tabela-caixa"></div>
+    </section>
+
+    <section id="view-comissoes" aria-labelledby="titulo-comissoes" hidden>
+      <div class="main-head">
+        <h1 class="display" id="titulo-comissoes">Comissões</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <select class="input" id="com-barbeiro" style="flex: 1; min-width: 180px;">
+            <option value="">Todos os barbeiros</option>
+          </select>
+          <select class="input" id="com-status" style="flex: 1; min-width: 160px;">
+            <option value="">Todos os status</option>
+            <option value="a_receber">A receber</option>
+            <option value="pago">Pagas</option>
+          </select>
+          <input class="input" id="com-data-inicio" type="date" style="flex: 1; min-width: 160px;" placeholder="Data início">
+          <input class="input" id="com-data-fim" type="date" style="flex: 1; min-width: 160px;" placeholder="Data fim">
+        </div>
+      </div>
+      <div class="tabela" id="tabela-comissoes"></div>
+      <div class="tabela" id="tabela-comissoes-resumo" style="margin-top: 24px;"></div>
     </section>
   </main>
 </div>
@@ -186,6 +290,170 @@
     <div class="dlg-actions">
       <button class="btn btn-line" type="button" id="bl-cancelar">Cancelar</button>
       <button class="btn btn-primary" type="submit" id="bl-salvar">Bloquear</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-produto" aria-labelledby="dlg-produto-titulo">
+  <form class="dlg" id="form-produto" novalidate>
+    <h2 class="display" id="dlg-produto-titulo">Novo produto</h2>
+    <div class="field">
+      <label for="pr-sku">SKU</label>
+      <input class="input" id="pr-sku" maxlength="30" placeholder="Ex: SHAMP-001, POMADE-002" required>
+    </div>
+    <div class="field">
+      <label for="pr-nome">Nome</label>
+      <input class="input" id="pr-nome" maxlength="80" required>
+    </div>
+    <div class="field">
+      <label for="pr-descricao">Descrição</label>
+      <input class="input" id="pr-descricao" maxlength="200" placeholder="Opcional">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pr-custo">Custo (R$)</label>
+        <input class="input" id="pr-custo" inputmode="decimal" placeholder="15,00" required>
+      </div>
+      <div class="field">
+        <label for="pr-preco">Preço de venda (R$)</label>
+        <input class="input" id="pr-preco" inputmode="decimal" placeholder="35,00" required>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pr-qtd">Quantidade em estoque</label>
+        <input class="input" id="pr-qtd" type="number" min="0" max="10000" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label for="pr-qtd-min">Quantidade mínima (alerta)</label>
+        <input class="input" id="pr-qtd-min" type="number" min="0" max="1000" inputmode="numeric" required>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pr-comissao-pct">Comissão (%)</label>
+        <input class="input" id="pr-comissao-pct" type="number" min="0" max="100" step="1" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label for="pr-comissao-fixo">Comissão fixa (R$) — opcional</label>
+        <input class="input" id="pr-comissao-fixo" inputmode="decimal" placeholder="0,00">
+      </div>
+    </div>
+    <label class="check" id="pr-ativo-wrap"><input type="checkbox" id="pr-ativo" checked> Produto ativo</label>
+    <div class="erro" id="pr-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="pr-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="pr-salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-produto-entrada" aria-labelledby="dlg-produto-entrada-titulo">
+  <form class="dlg" id="form-produto-entrada" novalidate>
+    <h2 class="display" id="dlg-produto-entrada-titulo">Entrada de estoque</h2>
+    <div class="field">
+      <label for="pe-quantidade">Quantidade a adicionar</label>
+      <input class="input" id="pe-quantidade" type="number" min="1" max="10000" inputmode="numeric" required>
+    </div>
+    <div class="erro" id="pe-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="pe-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="pe-salvar">Confirmar entrada</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-caixa" aria-labelledby="dlg-caixa-titulo">
+  <form class="dlg" id="form-caixa" novalidate>
+    <h2 class="display" id="dlg-caixa-titulo">Abrir caixa</h2>
+    <div class="field">
+      <label for="cx-valor-inicial">Valor inicial (R$)</label>
+      <input class="input" id="cx-valor-inicial" inputmode="decimal" placeholder="0,00" required>
+    </div>
+    <div class="field">
+      <label for="cx-obs">Observação</label>
+      <input class="input" id="cx-obs" maxlength="200" placeholder="Opcional">
+    </div>
+    <div class="erro" id="cx-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="cx-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="cx-salvar">Abrir caixa</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-caixa-fechar" aria-labelledby="dlg-caixa-fechar-titulo">
+  <form class="dlg" id="form-caixa-fechar" novalidate>
+    <h2 class="display" id="dlg-caixa-fechar-titulo">Fechar caixa</h2>
+    <div class="field">
+      <label for="cf-valor-final">Valor final contado (R$)</label>
+      <input class="input" id="cf-valor-final" inputmode="decimal" placeholder="0,00" required>
+    </div>
+    <div class="field">
+      <label for="cf-obs">Observação</label>
+      <input class="input" id="cf-obs" maxlength="200" placeholder="Opcional">
+    </div>
+    <div class="erro" id="cf-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="cf-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="cf-salvar">Fechar caixa</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-sangria" aria-labelledby="dlg-sangria-titulo">
+  <form class="dlg" id="form-sangria" novalidate>
+    <h2 class="display" id="dlg-sangria-titulo">Registrar sangria</h2>
+    <div class="field">
+      <label for="sg-valor">Valor (R$)</label>
+      <input class="input" id="sg-valor" inputmode="decimal" placeholder="0,00" required>
+    </div>
+    <div class="field">
+      <label for="sg-motivo">Motivo</label>
+      <input class="input" id="sg-motivo" maxlength="100" placeholder="Ex: Pagamento fornecedor, retirada dono...">
+    </div>
+    <div class="erro" id="sg-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="sg-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="sg-salvar">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-pdv-servico" aria-labelledby="dlg-pdv-servico-titulo">
+  <form class="dlg" id="form-pdv-servico" novalidate>
+    <h2 class="display" id="dlg-pdv-servico-titulo">Adicionar serviço</h2>
+    <div class="field">
+      <label for="pds-servico">Serviço</label>
+      <select class="input" id="pds-servico" required></select>
+    </div>
+    <div class="field">
+      <label for="pds-qtd">Quantidade</label>
+      <input class="input" id="pds-qtd" type="number" min="1" max="10" inputmode="numeric" value="1" required>
+    </div>
+    <div class="erro" id="pds-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="pds-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="pds-salvar">Adicionar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-pdv-produto" aria-labelledby="dlg-pdv-produto-titulo">
+  <form class="dlg" id="form-pdv-produto" novalidate>
+    <h2 class="display" id="dlg-pdv-produto-titulo">Adicionar produto</h2>
+    <div class="field">
+      <label for="pdp-produto">Produto</label>
+      <select class="input" id="pdp-produto" required></select>
+    </div>
+    <div class="field">
+      <label for="pdp-qtd">Quantidade</label>
+      <input class="input" id="pdp-qtd" type="number" min="1" max="100" inputmode="numeric" value="1" required>
+    </div>
+    <div class="erro" id="pdp-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="pdp-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="pdp-salvar">Adicionar</button>
     </div>
   </form>
 </dialog>

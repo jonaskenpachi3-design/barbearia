@@ -486,6 +486,38 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     return { agendamento: agendamentoParaJson(atualizado, true) };
   });
 
+  r.put('/api/agendamentos/:id/concluir', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const agend = db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id);
+    if (!agend) throw new ErroHttp(404, 'Agendamento não encontrado.');
+
+    // Barbeiro só pode concluir os seus; admin conclui qualquer
+    if (ctx.usuario.papel === 'barbeiro') {
+      const meuBarbeiro = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!meuBarbeiro || meuBarbeiro.id !== agend.barbeiro_id) {
+        throw new ErroHttp(403, 'Você só pode concluir seus próprios agendamentos.');
+      }
+    }
+
+    if (agend.status !== 'confirmado') {
+      throw new ErroHttp(400, 'Só é possível concluir agendamentos confirmados.');
+    }
+
+    db.prepare("UPDATE agendamentos SET status = 'concluido', atualizado_em = datetime('now') WHERE id = ?").run(id);
+
+    const atualizado = db.prepare(`
+      SELECT a.*, s.nome as servico_nome, s.duracao_min as servico_duracao, s.preco_centavos as servico_preco,
+             u2.nome as barbeiro_nome, u.nome as cliente_nome
+      FROM agendamentos a
+      JOIN servicos s ON s.id = a.servico_id
+      JOIN barbeiros b ON b.id = a.barbeiro_id
+      JOIN usuarios u ON u.id = a.cliente_id
+      JOIN usuarios u2 ON u2.id = b.usuario_id
+      WHERE a.id = ?
+    `).get(id);
+    return { agendamento: agendamentoParaJson(atualizado, true) };
+  });
+
   r.put('/api/agendamentos/:id/cancelar', auth.exigirLogin, (ctx) => {
     const id = v.idDaUrl(ctx.params.id);
     const agend = db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id);
@@ -684,6 +716,711 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
 
     db.prepare('DELETE FROM bloqueios WHERE id = ?').run(id);
     return { ok: true };
+  });
+
+  // ───────────────────────── Fase 3: Produtos ─────────────────────────
+
+  function produtoParaJson(p) {
+    return {
+      id: p.id,
+      sku: p.sku,
+      nome: p.nome,
+      descricao: p.descricao,
+      custo_centavos: p.custo_centavos,
+      preco_centavos: p.preco_centavos,
+      quantidade: p.quantidade,
+      qtd_minima: p.qtd_minima,
+      comissao_pct: p.comissao_pct,
+      comissao_fixo: p.comissao_fixo,
+      ativo: !!p.ativo,
+      estoque_baixo: p.quantidade <= p.qtd_minima && p.qtd_minima > 0,
+    };
+  }
+
+  r.get('/api/produtos', auth.exigirLogin, (ctx) => {
+    const admin = ctx.usuario.papel === 'admin';
+    const linhas = db.prepare(
+      `SELECT * FROM produtos ${admin ? '' : 'WHERE ativo = 1'} ORDER BY nome COLLATE NOCASE`
+    ).all();
+    return { produtos: linhas.map(produtoParaJson) };
+  });
+
+  r.get('/api/produtos/baixo-estoque', soAdmin, (ctx) => {
+    const linhas = db.prepare(
+      'SELECT * FROM produtos WHERE ativo = 1 AND qtd_minima > 0 AND quantidade <= qtd_minima ORDER BY (quantidade * 1.0 / qtd_minima) ASC'
+    ).all();
+    return { produtos: linhas.map(produtoParaJson) };
+  });
+
+  r.post('/api/produtos', soAdmin, (ctx) => {
+    const dados = v.produtoDados(ctx.body);
+    // Verifica SKU único
+    if (db.prepare('SELECT id FROM produtos WHERE sku = ?').get(dados.sku)) {
+      throw new ErroHttp(409, 'SKU já cadastrado.');
+    }
+    const id = db.prepare(`
+      INSERT INTO produtos (sku, nome, descricao, custo_centavos, preco_centavos, quantidade, qtd_minima, comissao_pct, comissao_fixo, ativo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(dados.sku, dados.nome, dados.descricao, dados.custo_centavos, dados.preco_centavos,
+           dados.quantidade, dados.qtd_minima, dados.comissao_pct, dados.comissao_fixo, dados.ativo ? 1 : 0).lastInsertRowid;
+    ctx.status = 201;
+    return { produto: produtoParaJson(db.prepare('SELECT * FROM produtos WHERE id = ?').get(id)) };
+  });
+
+  r.put('/api/produtos/:id', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const atual = db.prepare('SELECT * FROM produtos WHERE id = ?').get(id);
+    if (!atual) throw new ErroHttp(404, 'Produto não encontrado.');
+    const dados = v.produtoDados(ctx.body);
+    // Verifica SKU único (exceto o próprio)
+    if (dados.sku !== atual.sku && db.prepare('SELECT id FROM produtos WHERE sku = ?').get(dados.sku)) {
+      throw new ErroHttp(409, 'SKU já cadastrado.');
+    }
+    db.prepare(`
+      UPDATE produtos SET sku = ?, nome = ?, descricao = ?, custo_centavos = ?, preco_centavos = ?,
+        quantidade = ?, qtd_minima = ?, comissao_pct = ?, comissao_fixo = ?, ativo = ?
+      WHERE id = ?
+    `).run(dados.sku, dados.nome, dados.descricao, dados.custo_centavos, dados.preco_centavos,
+           dados.quantidade, dados.qtd_minima, dados.comissao_pct, dados.comissao_fixo, dados.ativo ? 1 : 0, id);
+    return { produto: produtoParaJson(db.prepare('SELECT * FROM produtos WHERE id = ?').get(id)) };
+  });
+
+  r.post('/api/produtos/:id/entrada', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const produto = db.prepare('SELECT * FROM produtos WHERE id = ?').get(id);
+    if (!produto) throw new ErroHttp(404, 'Produto não encontrado.');
+    const qtd = v.inteiro(ctx.body.quantidade, 'A quantidade', { min: 1, max: 10000 });
+    db.prepare('UPDATE produtos SET quantidade = quantidade + ? WHERE id = ?').run(qtd, id);
+    return { produto: produtoParaJson(db.prepare('SELECT * FROM produtos WHERE id = ?').get(id)) };
+  });
+
+  // ───────────────────────── Fase 3: Comissão por Serviço ─────────────────────────
+
+  r.get('/api/servicos/:id/comissao', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    if (!db.prepare('SELECT id FROM servicos WHERE id = ?').get(id)) throw new ErroHttp(404, 'Serviço não encontrado.');
+    const comissao = db.prepare('SELECT * FROM servico_comissao WHERE servico_id = ?').get(id);
+    return { servico_id: id, comissao: comissao ? { tipo: comissao.tipo, valor: comissao.valor } : null };
+  });
+
+  r.put('/api/servicos/:id/comissao', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    if (!db.prepare('SELECT id FROM servicos WHERE id = ?').get(id)) throw new ErroHttp(404, 'Serviço não encontrado.');
+    const dados = v.servicoComissaoDados(ctx.body);
+    db.prepare(`
+      INSERT INTO servico_comissao (servico_id, tipo, valor) VALUES (?, ?, ?)
+      ON CONFLICT(servico_id) DO UPDATE SET tipo = excluded.tipo, valor = excluded.valor
+    `).run(id, dados.tipo, dados.valor);
+    return { servico_id: id, comissao: { tipo: dados.tipo, valor: dados.valor } };
+  });
+
+  r.delete('/api/servicos/:id/comissao', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    db.prepare('DELETE FROM servico_comissao WHERE servico_id = ?').run(id);
+    return { ok: true };
+  });
+
+  // ───────────────────────── Fase 3: PDV / Vendas ─────────────────────────
+
+  function calcularComissaoItem(db, barbeiroId, tipo, referenciaId, precoUnitCentavos, quantidade) {
+    let comissaoPct = 0;
+    let comissaoFixo = 0;
+
+    if (tipo === 'servico') {
+      // Verifica regra específica do serviço
+      const regra = db.prepare('SELECT tipo, valor FROM servico_comissao WHERE servico_id = ?').get(referenciaId);
+      if (regra) {
+        if (regra.tipo === 'percentual') {
+          comissaoPct = regra.valor; // já em centésimos de % (ex: 4000 = 40%)
+        } else {
+          comissaoFixo = regra.valor; // em centavos
+        }
+      } else {
+        // Usa comissão padrão do barbeiro
+        const b = db.prepare('SELECT comissao_pct FROM barbeiros WHERE id = ?').get(barbeiroId);
+        if (b) comissaoPct = b.comissao_pct * 100; // converter % para centésimos (40 -> 4000)
+      }
+    } else if (tipo === 'produto') {
+      // Usa comissão do produto
+      const p = db.prepare('SELECT comissao_pct, comissao_fixo FROM produtos WHERE id = ?').get(referenciaId);
+      if (p) {
+        comissaoPct = p.comissao_pct * 100;
+        comissaoFixo = p.comissao_fixo;
+      }
+    }
+
+    let comissaoCentavos = 0;
+    const subtotal = precoUnitCentavos * quantidade;
+    if (comissaoFixo > 0) {
+      comissaoCentavos = comissaoFixo * quantidade;
+    } else if (comissaoPct > 0) {
+      comissaoCentavos = Math.round(subtotal * comissaoPct / 10000);
+    }
+    return comissaoCentavos;
+  }
+
+  function vendaParaJson(venda, itens = null) {
+    const base = {
+      id: venda.id,
+      cliente_id: venda.cliente_id,
+      barbeiro_id: venda.barbeiro_id,
+      caixa_id: venda.caixa_id,
+      subtotal_centavos: venda.subtotal_centavos,
+      desconto_centavos: venda.desconto_centavos,
+      total_centavos: venda.total_centavos,
+      forma_pagamento: venda.forma_pagamento,
+      dinheiro_recebido: venda.dinheiro_recebido,
+      troco_centavos: Math.max(0, venda.dinheiro_recebido - venda.total_centavos),
+      status: venda.status,
+      observacao: venda.observacao,
+      criado_em: venda.criado_em,
+    };
+    if (itens) {
+      return { ...base, itens };
+    }
+    return base;
+  }
+
+  // Obter caixa aberto do dia
+  function obterCaixaAberto(db, dataISO = null) {
+    const data = dataISO || new Date().toISOString().slice(0, 10);
+    return db.prepare('SELECT * FROM caixa WHERE data = ? AND status = \'aberto\'').get(data);
+  }
+
+  r.get('/api/caixa/aberto', soAdmin, (ctx) => {
+    const caixa = obterCaixaAberto(db);
+    return { caixa: caixa || null };
+  });
+
+  r.post('/api/caixa/abrir', soAdmin, (ctx) => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const existente = db.prepare('SELECT * FROM caixa WHERE data = ?').get(hoje);
+    if (existente) throw new ErroHttp(409, 'Caixa já aberto para hoje.');
+    const dados = v.caixaAberturaDados(ctx.body);
+    const id = db.prepare(`
+      INSERT INTO caixa (data, aberto_por, valor_inicial_centavos, observacao_abertura, status)
+      VALUES (?, ?, ?, ?, 'aberto')
+    `).run(hoje, ctx.usuario.id, dados.valor_inicial_centavos, dados.observacao).lastInsertRowid;
+    ctx.status = 201;
+    return { caixa: db.prepare('SELECT * FROM caixa WHERE id = ?').get(id) };
+  });
+
+  r.post('/api/caixa/:id/sangria', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const caixa = db.prepare('SELECT * FROM caixa WHERE id = ?').get(id);
+    if (!caixa) throw new ErroHttp(404, 'Caixa não encontrado.');
+    if (caixa.status !== 'aberto') throw new ErroHttp(400, 'Caixa não está aberto.');
+    const dados = v.sangriaDados(ctx.body);
+    db.prepare('INSERT INTO sangrias (caixa_id, valor_centavos, responsavel_id, motivo) VALUES (?, ?, ?, ?)')
+      .run(id, dados.valor_centavos, ctx.usuario.id, dados.motivo);
+    db.prepare('UPDATE caixa SET sangrias_centavos = sangrias_centavos + ? WHERE id = ?').run(dados.valor_centavos, id);
+    return { ok: true, caixa: db.prepare('SELECT * FROM caixa WHERE id = ?').get(id) };
+  });
+
+  r.get('/api/caixa/:id', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const caixa = db.prepare('SELECT * FROM caixa WHERE id = ?').get(id);
+    if (!caixa) throw new ErroHttp(404, 'Caixa não encontrado.');
+    const sangrias = db.prepare('SELECT s.*, u.nome as responsavel_nome FROM sangrias s JOIN usuarios u ON u.id = s.responsavel_id WHERE s.caixa_id = ? ORDER BY s.criado_em').all(id);
+    const vendas = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+      WHERE v.caixa_id = ? ORDER BY v.criado_em
+    `).all(id);
+    return { caixa, sangrias, vendas };
+  });
+
+  r.put('/api/caixa/:id/fechar', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const caixa = db.prepare('SELECT * FROM caixa WHERE id = ?').get(id);
+    if (!caixa) throw new ErroHttp(404, 'Caixa não encontrado.');
+    if (caixa.status !== 'aberto') throw new ErroHttp(400, 'Caixa já fechado.');
+    const dados = v.caixaFechamentoDados(ctx.body);
+
+    // Calcula totais reais das vendas
+    const totais = db.prepare(`
+      SELECT
+        SUM(CASE WHEN forma_pagamento = 'dinheiro' THEN total_centavos ELSE 0 END) as dinheiro,
+        SUM(CASE WHEN forma_pagamento = 'cartao' THEN total_centavos ELSE 0 END) as cartao,
+        SUM(CASE WHEN forma_pagamento = 'pix' THEN total_centavos ELSE 0 END) as pix,
+        SUM(CASE WHEN forma_pagamento = 'misto' THEN total_centavos ELSE 0 END) as misto
+      FROM vendas WHERE caixa_id = ? AND status = 'concluida'
+    `).get(id);
+
+    const totalDinheiro = (totais.dinheiro || 0) + (totais.misto || 0); // simplificação: misto conta como dinheiro no fechamento
+    const totalCartao = totais.cartao || 0;
+    const totalPix = totais.pix || 0;
+    const totalVendas = totalDinheiro + totalCartao + totalPix;
+    const esperado = caixa.valor_inicial_centavos + totalVendas - caixa.sangrias_centavos;
+    const diferenca = dados.valor_final_centavos - esperado;
+
+    db.prepare(`
+      UPDATE caixa SET
+        fechado_por = ?, valor_final_centavos = ?, total_dinheiro_centavos = ?, total_cartao_centavos = ?,
+        total_pix_centavos = ?, total_misto_centavos = ?, observacao_fechamento = ?,
+        status = 'fechado', fechado_em = datetime('now')
+      WHERE id = ?
+    `).run(ctx.usuario.id, dados.valor_final_centavos, totalDinheiro, totalCartao, totalPix, (totais.misto || 0), dados.observacao, id);
+
+    return { caixa: db.prepare('SELECT * FROM caixa WHERE id = ?').get(id), esperado, diferenca };
+  });
+
+  r.get('/api/caixa/historico', soAdmin, (ctx) => {
+    const data = ctx.query.data ? v.dataISO(ctx.query.data) : null;
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (data) { where += ' AND data = ?'; params.push(data); }
+    const caixas = db.prepare(`
+      SELECT c.*, u1.nome as aberto_por_nome, u2.nome as fechado_por_nome
+      FROM caixa c
+      JOIN usuarios u1 ON u1.id = c.aberto_por
+      LEFT JOIN usuarios u2 ON u2.id = c.fechado_por
+      ${where}
+      ORDER BY c.data DESC
+    `).all(...params);
+    return { caixas };
+  });
+
+  // Vendas
+  r.post('/api/vendas', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    // Barbeiro só pode vender se houver caixa aberto
+    const caixa = obterCaixaAberto(db);
+    if (!caixa) throw new ErroHttp(400, 'Não há caixa aberto. O administrador deve abrir o caixa primeiro.');
+
+    // Barbeiro só pode registrar venda para si mesmo; admin pode para qualquer
+    let barbeiroId;
+    if (ctx.usuario.papel === 'barbeiro') {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b) throw new ErroHttp(404, 'Cadastro de barbeiro não encontrado.');
+      barbeiroId = b.id;
+    } else {
+      barbeiroId = v.inteiro(ctx.body.barbeiro_id, 'O barbeiro', { min: 1 });
+    }
+
+    const dados = v.vendaDados(ctx.body);
+    if (dados.barbeiro_id !== barbeiroId) throw new ErroHttp(403, 'Você só pode registrar vendas para si mesmo.');
+
+    // Validar itens e calcular totais
+    let subtotal = 0;
+    const itensProcessados = [];
+
+    for (const item of dados.itens) {
+      const itemVal = v.vendaItemDados(item);
+      let precoUnit = 0;
+      let referenciaNome = '';
+
+      if (itemVal.tipo === 'servico') {
+        const s = db.prepare('SELECT id, nome, preco_centavos, duracao_min FROM servicos WHERE id = ? AND ativo = 1').get(itemVal.referencia_id);
+        if (!s) throw new ErroHttp(404, `Serviço ${itemVal.referencia_id} não encontrado ou inativo.`);
+        precoUnit = s.preco_centavos;
+        referenciaNome = s.nome;
+      } else {
+        const p = db.prepare('SELECT id, nome, preco_centavos, quantidade FROM produtos WHERE id = ? AND ativo = 1').get(itemVal.referencia_id);
+        if (!p) throw new ErroHttp(404, `Produto ${itemVal.referencia_id} não encontrado ou inativo.`);
+        if (p.quantidade < itemVal.quantidade) throw new ErroHttp(400, `Estoque insuficiente para ${p.nome}. Disponível: ${p.quantidade}`);
+        precoUnit = p.preco_centavos;
+        referenciaNome = p.nome;
+      }
+
+      const comissaoCentavos = calcularComissaoItem(db, barbeiroId, itemVal.tipo, itemVal.referencia_id, precoUnit, itemVal.quantidade);
+      subtotal += precoUnit * itemVal.quantidade;
+
+      itensProcessados.push({
+        tipo: itemVal.tipo,
+        referencia_id: itemVal.referencia_id,
+        quantidade: itemVal.quantidade,
+        preco_unit_centavos: precoUnit,
+        comissao_centavos: comissaoCentavos,
+        barbeiro_id: barbeiroId,
+        _referencia_nome: referenciaNome,
+      });
+    }
+
+    const total = subtotal - dados.desconto_centavos;
+    if (total < 0) throw new ErroHttp(400, 'Desconto não pode ser maior que o subtotal.');
+
+    // Valida dinheiro recebido se for dinheiro ou misto
+    if ((dados.forma_pagamento === 'dinheiro' || dados.forma_pagamento === 'misto') && dados.dinheiro_recebido < total) {
+      throw new ErroHttp(400, 'Dinheiro recebido deve ser maior ou igual ao total.');
+    }
+
+    const vendaId = transacao(db, () => {
+      const id = db.prepare(`
+        INSERT INTO vendas (cliente_id, barbeiro_id, caixa_id, subtotal_centavos, desconto_centavos,
+          total_centavos, forma_pagamento, dinheiro_recebido, status, observacao)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'concluida', ?)
+      `).run(dados.cliente_id, barbeiroId, caixa.id, subtotal, dados.desconto_centavos,
+             total, dados.forma_pagamento, dados.dinheiro_recebido, dados.observacao).lastInsertRowid;
+
+      const inserirItem = db.prepare(`
+        INSERT INTO venda_itens (venda_id, tipo, referencia_id, quantidade, preco_unit_centavos, comissao_centavos, barbeiro_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const item of itensProcessados) {
+        const resultadoItem = inserirItem.run(id, item.tipo, item.referencia_id, item.quantidade, item.preco_unit_centavos, item.comissao_centavos, item.barbeiro_id);
+        const vendaItemId = resultadoItem.lastInsertRowid;
+
+        // Baixa estoque se for produto
+        if (item.tipo === 'produto') {
+          db.prepare('UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?').run(item.quantidade, item.referencia_id);
+        }
+
+        // Cria comissão a receber
+        if (item.comissao_centavos > 0) {
+          db.prepare(`
+            INSERT INTO comissoes (venda_item_id, barbeiro_id, valor_centavos, status)
+            VALUES (?, ?, ?, 'a_receber')
+          `).run(vendaItemId, barbeiroId, item.comissao_centavos);
+        }
+      }
+
+      // Atualiza totais do caixa
+      if (dados.forma_pagamento === 'dinheiro') {
+        db.prepare('UPDATE caixa SET total_dinheiro_centavos = total_dinheiro_centavos + ? WHERE id = ?').run(total, caixa.id);
+      } else if (dados.forma_pagamento === 'cartao') {
+        db.prepare('UPDATE caixa SET total_cartao_centavos = total_cartao_centavos + ? WHERE id = ?').run(total, caixa.id);
+      } else if (dados.forma_pagamento === 'pix') {
+        db.prepare('UPDATE caixa SET total_pix_centavos = total_pix_centavos + ? WHERE id = ?').run(total, caixa.id);
+      } else if (dados.forma_pagamento === 'misto') {
+        db.prepare('UPDATE caixa SET total_dinheiro_centavos = total_dinheiro_centavos + ?, total_misto_centavos = total_misto_centavos + ? WHERE id = ?')
+          .run(total, total, caixa.id);
+      }
+
+      return Number(id);
+    });
+
+    ctx.status = 201;
+    // Retorna venda completa com itens
+    const venda = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+      WHERE v.id = ?
+    `).get(vendaId);
+    const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(vendaId);
+    return { venda: { ...vendaParaJson(venda, itens), barbeiro_nome: venda.barbeiro_nome, cliente_nome: venda.cliente_nome } };
+  });
+
+  r.get('/api/vendas', auth.exigirLogin, (ctx) => {
+    const admin = ctx.usuario.papel === 'admin';
+    const barbeiro = ctx.usuario.papel === 'barbeiro';
+
+    let where = 'WHERE 1=1';
+    const params = [];
+
+    if (barbeiro) {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b) throw new ErroHttp(404, 'Cadastro de barbeiro não encontrado.');
+      where += ' AND v.barbeiro_id = ?';
+      params.push(b.id);
+    } else if (ctx.query.barbeiro) {
+      where += ' AND v.barbeiro_id = ?';
+      params.push(v.inteiro(ctx.query.barbeiro, 'O barbeiro', { min: 1 }));
+    }
+    if (ctx.query.cliente) {
+      where += ' AND v.cliente_id = ?';
+      params.push(v.inteiro(ctx.query.cliente, 'O cliente', { min: 1 }));
+    }
+    if (ctx.query.data_inicio) {
+      where += ' AND date(v.criado_em) >= date(?)';
+      params.push(v.dataISO(ctx.query.data_inicio));
+    }
+    if (ctx.query.data_fim) {
+      where += ' AND date(v.criado_em) <= date(?)';
+      params.push(v.dataISO(ctx.query.data_fim));
+    }
+    if (ctx.query.caixa) {
+      where += ' AND v.caixa_id = ?';
+      params.push(v.inteiro(ctx.query.caixa, 'O caixa', { min: 1 }));
+    }
+
+    const vendas = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+      ${where}
+      ORDER BY v.criado_em DESC
+      LIMIT 100
+    `).all(...params);
+
+    return { vendas: vendas.map(v => vendaParaJson(v)) };
+  });
+
+  r.get('/api/vendas/:id', auth.exigirLogin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const venda = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+      WHERE v.id = ?
+    `).get(id);
+    if (!venda) throw new ErroHttp(404, 'Venda não encontrada.');
+
+    // Barbeiro só vê suas vendas
+    if (ctx.usuario.papel === 'barbeiro') {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b || b.id !== venda.barbeiro_id) throw new ErroHttp(403, 'Acesso negado.');
+    }
+
+    const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(id);
+    // Enriquece itens com nomes
+    for (const item of itens) {
+      if (item.tipo === 'servico') {
+        const s = db.prepare('SELECT nome, duracao_min FROM servicos WHERE id = ?').get(item.referencia_id);
+        if (s) { item.referencia_nome = s.nome; item.duracao_min = s.duracao_min; }
+      } else {
+        const p = db.prepare('SELECT nome FROM produtos WHERE id = ?').get(item.referencia_id);
+        if (p) item.referencia_nome = p.nome;
+      }
+    }
+
+    return { venda: { ...vendaParaJson(venda, itens), barbeiro_nome: venda.barbeiro_nome, cliente_nome: venda.cliente_nome } };
+  });
+
+  // ───────────────────────── Fase 3: Comissões ─────────────────────────
+
+  r.get('/api/comissoes', auth.exigirLogin, (ctx) => {
+    const admin = ctx.usuario.papel === 'admin';
+    const barbeiro = ctx.usuario.papel === 'barbeiro';
+
+    let where = 'WHERE 1=1';
+    const params = [];
+
+    if (barbeiro) {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b) throw new ErroHttp(404, 'Cadastro de barbeiro não encontrado.');
+      where += ' AND c.barbeiro_id = ?';
+      params.push(b.id);
+    } else if (ctx.query.barbeiro) {
+      where += ' AND c.barbeiro_id = ?';
+      params.push(v.inteiro(ctx.query.barbeiro, 'O barbeiro', { min: 1 }));
+    }
+    if (ctx.query.status) {
+      where += ' AND c.status = ?';
+      params.push(v.texto(ctx.query.status, 'O status'));
+    }
+    if (ctx.query.data_inicio) {
+      where += ' AND date(vi.criado_em) >= date(?)';
+      params.push(v.dataISO(ctx.query.data_inicio));
+    }
+    if (ctx.query.data_fim) {
+      where += ' AND date(vi.criado_em) <= date(?)';
+      params.push(v.dataISO(ctx.query.data_fim));
+    }
+
+    const comissoes = db.prepare(`
+      SELECT c.*, vi.tipo as item_tipo, vi.referencia_id, vi.quantidade, vi.preco_unit_centavos,
+             v.id as venda_id, v.criado_em as venda_criado_em, v.forma_pagamento,
+             u.nome as barbeiro_nome
+      FROM comissoes c
+      JOIN venda_itens vi ON vi.id = c.venda_item_id
+      JOIN vendas v ON v.id = vi.venda_id
+      JOIN barbeiros b ON b.id = c.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      ${where}
+      ORDER BY v.criado_em DESC
+    `).all(...params);
+
+    // Enriquece com nome do serviço/produto
+    for (const c of comissoes) {
+      if (c.item_tipo === 'servico') {
+        const s = db.prepare('SELECT nome FROM servicos WHERE id = ?').get(c.referencia_id);
+        if (s) c.item_nome = s.nome;
+      } else {
+        const p = db.prepare('SELECT nome FROM produtos WHERE id = ?').get(c.referencia_id);
+        if (p) c.item_nome = p.nome;
+      }
+    }
+
+    return { comissoes };
+  });
+
+  r.get('/api/comissoes/resumo', auth.exigirLogin, (ctx) => {
+    const admin = ctx.usuario.papel === 'admin';
+    const barbeiro = ctx.usuario.papel === 'barbeiro';
+
+    let where = 'WHERE 1=1';
+    const params = [];
+
+    if (barbeiro) {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b) throw new ErroHttp(404, 'Cadastro de barbeiro não encontrado.');
+      where += ' AND c.barbeiro_id = ?';
+      params.push(b.id);
+    } else if (ctx.query.barbeiro) {
+      where += ' AND c.barbeiro_id = ?';
+      params.push(v.inteiro(ctx.query.barbeiro, 'O barbeiro', { min: 1 }));
+    }
+    if (ctx.query.data_inicio) {
+      where += ' AND date(v.criado_em) >= date(?)';
+      params.push(v.dataISO(ctx.query.data_inicio));
+    }
+    if (ctx.query.data_fim) {
+      where += ' AND date(v.criado_em) <= date(?)';
+      params.push(v.dataISO(ctx.query.data_fim));
+    }
+
+    const resumo = db.prepare(`
+      SELECT
+        c.barbeiro_id,
+        u.nome as barbeiro_nome,
+        SUM(CASE WHEN c.status = 'a_receber' THEN c.valor_centavos ELSE 0 END) as a_receber,
+        SUM(CASE WHEN c.status = 'pago' THEN c.valor_centavos ELSE 0 END) as pago,
+        COUNT(*) as total_itens
+      FROM comissoes c
+      JOIN venda_itens vi ON vi.id = c.venda_item_id
+      JOIN vendas v ON v.id = vi.venda_id
+      JOIN barbeiros b ON b.id = c.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      ${where}
+      GROUP BY c.barbeiro_id, u.nome
+      ORDER BY u.nome
+    `).all(...params);
+
+    return { resumo };
+  });
+
+  r.put('/api/comissoes/lote/pagar', soAdmin, (ctx) => {
+    const ids = v.listaDeIds(ctx.body.ids, 'IDs das comissões');
+    if (!ids.length) throw new ErroHttp(400, 'Informe pelo menos uma comissão.');
+    const dados = v.comissaoPagamentoDados(ctx.body);
+
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`UPDATE comissoes SET status = 'pago', pago_em = datetime('now'), pago_por = ?, observacao = ? WHERE id IN (${placeholders})`)
+      .run(ctx.usuario.id, dados.observacao, ...ids);
+
+    return { ok: true, pagas: ids.length };
+  });
+
+  r.put('/api/comissoes/:id/pagar', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const comissao = db.prepare('SELECT * FROM comissoes WHERE id = ?').get(id);
+    if (!comissao) throw new ErroHttp(404, 'Comissão não encontrada.');
+    if (comissao.status === 'pago') throw new ErroHttp(400, 'Comissão já paga.');
+
+    const dados = v.comissaoPagamentoDados(ctx.body);
+    db.prepare("UPDATE comissoes SET status = 'pago', pago_em = datetime('now'), pago_por = ?, observacao = ? WHERE id = ?")
+      .run(ctx.usuario.id, dados.observacao, id);
+
+    return { comissao: db.prepare('SELECT * FROM comissoes WHERE id = ?').get(id) };
+  });
+
+  // ───────────────────────── Fase 3: Observações do Cliente ─────────────────────────
+
+  r.get('/api/clientes/:id/observacoes', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    const clienteId = v.idDaUrl(ctx.params.id);
+    // Verifica se cliente existe
+    if (!db.prepare('SELECT id FROM usuarios WHERE id = ? AND papel = \'cliente\'').get(clienteId)) {
+      throw new ErroHttp(404, 'Cliente não encontrado.');
+    }
+
+    const obs = db.prepare(`
+      SELECT o.*, u.nome as barbeiro_nome
+      FROM cliente_observacoes o
+      JOIN barbeiros b ON b.id = o.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE o.cliente_id = ?
+      ORDER BY o.criado_em DESC
+    `).all(clienteId);
+
+    return { observacoes: obs };
+  });
+
+  r.post('/api/clientes/:id/observacoes', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    const clienteId = v.idDaUrl(ctx.params.id);
+    if (!db.prepare('SELECT id FROM usuarios WHERE id = ? AND papel = \'cliente\'').get(clienteId)) {
+      throw new ErroHttp(404, 'Cliente não encontrado.');
+    }
+
+    let barbeiroId;
+    if (ctx.usuario.papel === 'barbeiro') {
+      const b = db.prepare('SELECT id FROM barbeiros WHERE usuario_id = ?').get(ctx.usuario.id);
+      if (!b) throw new ErroHttp(404, 'Cadastro de barbeiro não encontrado.');
+      barbeiroId = b.id;
+    } else {
+      barbeiroId = v.inteiro(ctx.body.barbeiro_id, 'O barbeiro', { min: 1 });
+    }
+
+    const dados = v.observacaoDados(ctx.body);
+    const id = db.prepare(`
+      INSERT INTO cliente_observacoes (cliente_id, barbeiro_id, conteudo)
+      VALUES (?, ?, ?)
+    `).run(clienteId, barbeiroId, dados.conteudo).lastInsertRowid;
+
+    ctx.status = 201;
+    return { observacao: db.prepare(`
+      SELECT o.*, u.nome as barbeiro_nome
+      FROM cliente_observacoes o
+      JOIN barbeiros b ON b.id = o.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE o.id = ?
+    `).get(id) };
+  });
+
+  // ───────────────────────── Fase 3: Histórico Completo do Cliente ─────────────────────────
+
+  r.get('/api/clientes/:id/historico', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    const clienteId = v.idDaUrl(ctx.params.id);
+    if (!db.prepare('SELECT id FROM usuarios WHERE id = ? AND papel = \'cliente\'').get(clienteId)) {
+      throw new ErroHttp(404, 'Cliente não encontrado.');
+    }
+
+    // Agendamentos concluídos
+    const agendamentos = db.prepare(`
+      SELECT a.*, s.nome as servico_nome, s.duracao_min, s.preco_centavos,
+             u.nome as barbeiro_nome
+      FROM agendamentos a
+      JOIN servicos s ON s.id = a.servico_id
+      JOIN barbeiros b ON b.id = a.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE a.cliente_id = ? AND a.status = 'concluido'
+      ORDER BY a.inicio DESC
+    `).all(clienteId);
+
+    // Vendas (serviços avulsos + produtos)
+    const vendas = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE v.cliente_id = ? AND v.status = 'concluida'
+      ORDER BY v.criado_em DESC
+    `).all(clienteId);
+
+    // Itens das vendas
+    for (const venda of vendas) {
+      venda.itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(venda.id);
+      for (const item of venda.itens) {
+        if (item.tipo === 'servico') {
+          const s = db.prepare('SELECT nome, duracao_min FROM servicos WHERE id = ?').get(item.referencia_id);
+          if (s) { item.referencia_nome = s.nome; item.duracao_min = s.duracao_min; }
+        } else {
+          const p = db.prepare('SELECT nome FROM produtos WHERE id = ?').get(item.referencia_id);
+          if (p) item.referencia_nome = p.nome;
+        }
+      }
+    }
+
+    // Observações
+    const observacoes = db.prepare(`
+      SELECT o.*, u.nome as barbeiro_nome
+      FROM cliente_observacoes o
+      JOIN barbeiros b ON b.id = o.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE o.cliente_id = ?
+      ORDER BY o.criado_em DESC
+    `).all(clienteId);
+
+    return { agendamentos, vendas, observacoes };
   });
 
   return r;
