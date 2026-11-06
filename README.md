@@ -149,18 +149,79 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | GET | `/api/agenda-admin` | admin | Visão geral `?data=&barbeiro=&status=` |
 
 ### Bloqueios (Fase 2)
+
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/bloqueios` | admin | Lista (filtros `?barbeiro=&data=`) |
 | POST | `/api/bloqueios` | admin | Cria (sem `barbeiro_id` = global) |
 | DELETE | `/api/bloqueios/:id` | admin | Remove (libera horários) |
 
+### Produtos (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/produtos` | admin | Lista (filtro `?baixo=true` para estoque baixo) |
+| GET | `/api/produtos/baixo-estoque` | admin | Produtos abaixo do mínimo |
+| POST | `/api/produtos` | admin | Cria (SKU único, custo/preço em centavos, qtd mínima, comissão) |
+| PUT | `/api/produtos/:id` | admin | Atualiza |
+| POST | `/api/produtos/:id/entrada` | admin | Adiciona quantidade ao estoque |
+
+### Comissão por Serviço (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/servicos/:id/comissao` | admin | Consulta regra específica |
+| PUT | `/api/servicos/:id/comissao` | admin | Define (`tipo: percentual|fixo`, `valor` em centésimos de % ou centavos) |
+| DELETE | `/api/servicos/:id/comissao` | admin | Remove (volta para comissão do barbeiro) |
+
+### PDV / Vendas (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/vendas` | admin | Lista (filtros `?data=&barbeiro=&status=&caixa=`) |
+| GET | `/api/vendas/:id` | admin/barbeiro | Detalhe com itens |
+| POST | `/api/vendas` | barbeiro | Cria venda (requer caixa aberto) — itens: `tipo` (servico/produto), `referencia_id`, `quantidade`; `forma_pagamento`, `desconto_centavos`, `dinheiro_recebido` (p/ dinheiro); baixa estoque + gera comissão |
+
+### Caixa (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/caixa/aberto` | admin | Caixa aberto do dia (ou null) |
+| POST | `/api/caixa/abrir` | admin | Abre caixa (`valor_inicial_centavos`, `observacao`) |
+| GET | `/api/caixa/:id` | admin | Detalhe com sangrias e vendas |
+| POST | `/api/caixa/:id/sangria` | admin | Retirada (`valor_centavos`, `motivo`) |
+| PUT | `/api/caixa/:id/fechar` | admin | Fecha (`valor_final_centavos`, `observacao`) — valida `inicial + vendas - sangrias = final` |
+| GET | `/api/caixa/historico` | admin | Histórico de caixas (filtro `?data=`) |
+
+### Comissões (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/comissoes` | admin | Lista (filtros `?barbeiro=&status=&data_inicio=&data_fim=`) |
+| GET | `/api/comissoes/resumo` | admin | Resumo por barbeiro (a receber, pago, total) |
+| PUT | `/api/comissoes/:id/pagar` | admin | Paga uma (`observacao`) |
+| PUT | `/api/comissoes/lote/pagar` | admin | Paga várias (`ids[]`, `observacao`) |
+
+### Observações & Histórico do Cliente (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/clientes/:id/observacoes` | barbeiro/admin | Lista anotações do barbeiro logado |
+| POST | `/api/clientes/:id/observacoes` | barbeiro | Adiciona anotação |
+| GET | `/api/clientes/:id/historico` | barbeiro | Unificado: agendamentos concluídos + vendas walk-in + observações |
+
+### Agendamentos — Concluir (Fase 3)
+
+| Método | Rota | Quem | Descrição |
+|--------|------|------|-----------|
+| PUT | `/api/agendamentos/:id/concluir` | barbeiro/admin | Marca concluído → gera comissão + entra no histórico |
+
 ---
 
 ## Segurança já implementada
 
 - **Senhas**: scrypt + salt; só hash do token de sessão no banco
-- **Sessão**: cookie `HttpOnly` + `SameSite=La`; expiração configurável
+- **Sessão**: cookie `HttpOnly` + `SameSite=Lax`; expiração configurável
 - **Escrita na API**: exige `Content-Type: application/json` (anti-CSRF)
 - **SQL**: consultas 100% parametrizadas
 - **Frontend**: DOM via `textContent` (sem `innerHTML` = sem XSS)
@@ -170,10 +231,10 @@ test/api.test.js     # Testes de integração da API (35 testes)
 
 ---
 
-## Próximos passos sugeridos (Fase 3+)
+## Próximos passos sugeridos (Fase 4+)
 
 - Notificações (e-mail/WhatsApp) para confirmação/lembrete
-- Relatório financeiro (comissão por barbeiro, faturamento por serviço/período)
+- Relatório financeiro avançado (faturamento por serviço/período, ticket médio)
 - Recorrência de agendamentos (semanal/quinzenal)
 - Multi-unidade (filiais)
 - PWA (offline-first para barbeiros)
