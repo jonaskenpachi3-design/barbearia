@@ -224,10 +224,29 @@ function observacaoDados(valor) {
   return { conteudo };
 }
 
+function agendamentoPublicoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados do agendamento inválidos.');
+  const nome = texto(valor.nome, 'O nome', { min: 2, max: 80 });
+  const telefoneValidado = telefone(valor.telefone); // reutiliza validação de telefone
+  const barbeiro_id = inteiro(valor.barbeiro_id, 'O barbeiro', { min: 1 });
+  const servico_id = inteiro(valor.servico_id, 'O serviço', { min: 1 });
+  const inicio = dataHoraISO(valor.inicio, 'O início');
+  return { nome, telefone: telefoneValidado, barbeiro_id, servico_id, inicio };
+}
+
+function cancelamentoPublicoDados(valor) {
+  if (!valor || typeof valor !== 'object') throw new ErroHttp(400, 'Dados de cancelamento inválidos.');
+  const codigo = texto(valor.codigo, 'O código de cancelamento');
+  if (!/^\d{6}$/.test(codigo)) throw new ErroHttp(400, 'Código deve ter 6 dígitos.');
+  return { codigo };
+}
+
 module.exports = {
   texto, email, senha, telefone, inteiro, booleano, idDaUrl, listaDeIds, jornada,
   dataISO, dataHoraISO, statusAgendamento, bloqueioDados, paraMinutos,
   // Fase 3
   formaPagamento, produtoDados, servicoComissaoDados, vendaDados, vendaItemDados,
   caixaAberturaDados, caixaFechamentoDados, sangriaDados, comissaoPagamentoDados, observacaoDados,
+  // Fase 4: agendamento público
+  agendamentoPublicoDados, cancelamentoPublicoDados,
 };

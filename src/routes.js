@@ -454,6 +454,131 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     return { agendamento: agendamentoParaJson(agend, true) };
   });
 
+  // ───────────────────────── Fase 4: Agendamento Público (nome + telefone) ─────────────────────────
+
+  // POST /api/agendamentos-publico — Cliente agenda só com nome + telefone (sem login)
+  r.post('/api/agendamentos-publico', async (ctx) => {
+    const { nome, telefone, barbeiro_id, servico_id, inicio } = v.agendamentoPublicoDados(ctx.body);
+
+    // Verifica barbeiro ativo
+    const barbeiro = db.prepare('SELECT id FROM barbeiros WHERE id = ? AND ativo = 1').get(barbeiro_id);
+    if (!barbeiro) throw new ErroHttp(404, 'Barbeiro não encontrado ou inativo.');
+
+    // Verifica serviço ativo
+    const servico = db.prepare('SELECT duracao_min FROM servicos WHERE id = ? AND ativo = 1').get(servico_id);
+    if (!servico) throw new ErroHttp(404, 'Serviço não encontrado ou inativo.');
+
+    // Verifica se barbeiro atende esse serviço
+    const atende = db.prepare(
+      'SELECT 1 FROM barbeiro_servicos WHERE barbeiro_id = ? AND servico_id = ?'
+    ).get(barbeiro_id, servico_id);
+    if (!atende) throw new ErroHttp(400, 'Este barbeiro não realiza esse serviço.');
+
+    const fim = new Date(inicio);
+    fim.setMinutes(fim.getMinutes() + servico.duracao_min);
+    const fimISO = `${fim.getFullYear()}-${String(fim.getMonth()+1).padStart(2,'0')}-${String(fim.getDate()).padStart(2,'0')}T${String(fim.getHours()).padStart(2,'0')}:${String(fim.getMinutes()).padStart(2,'0')}:${String(fim.getSeconds()).padStart(2,'0')}`;
+
+    // Valida se está dentro da jornada
+    const diaSemana = new Date(inicio).getDay();
+    const jornada = db.prepare(
+      'SELECT inicio, fim FROM horarios_trabalho WHERE barbeiro_id = ? AND dia_semana = ?'
+    ).all(barbeiro_id, diaSemana);
+
+    const iniMin = hhmmParaMin(inicio.slice(11, 16));
+    const fimMin = hhmmParaMin(fimISO.slice(11, 16));
+    const dentroJornada = jornada.some(t =>
+      hhmmParaMin(t.inicio) <= iniMin && fimMin <= hhmmParaMin(t.fim)
+    );
+    if (!dentroJornada) throw new ErroHttp(400, 'Horário fora da jornada do barbeiro.');
+
+    // Verifica conflitos
+    const conflito = db.prepare(`
+      SELECT 1 FROM agendamentos
+      WHERE barbeiro_id = ? AND status IN ('pendente','confirmado')
+        AND inicio < ? AND fim > ?
+    `).get(barbeiro_id, fimISO, inicio);
+    if (conflito) throw new ErroHttp(409, 'Horário não disponível (conflito com outro agendamento).');
+
+    // Verifica bloqueios
+    const bloqueio = db.prepare(`
+      SELECT 1 FROM bloqueios
+      WHERE (barbeiro_id = ? OR barbeiro_id IS NULL)
+        AND inicio < ? AND fim > ?
+    `).get(barbeiro_id, fimISO, inicio);
+    if (bloqueio) throw new ErroHttp(409, 'Horário bloqueado pelo administrador.');
+
+    // Busca ou cria usuário cliente (para integridade com FK agendamentos.cliente_id -> usuarios)
+    let usuario = db.prepare('SELECT id FROM usuarios WHERE telefone = ? AND papel = \'cliente\'').get(telefone);
+    if (!usuario) {
+      // Senha dummy (não usada para login público) e email dummy único
+      const dummyHash = await hashSenha('publico_' + Date.now() + Math.random());
+      const dummyEmail = `publico_${telefone.replace(/\D/g, '')}_${Date.now()}@barbearia.local`;
+      const result = db.prepare('INSERT INTO usuarios (nome, email, telefone, senha_hash, papel) VALUES (?, ?, ?, ?, \'cliente\')').run(nome, dummyEmail, telefone, dummyHash);
+      usuario = { id: result.lastInsertRowid };
+    }
+
+    // Também registra em clientes_simples para busca por telefone
+    db.prepare('INSERT OR IGNORE INTO clientes_simples (nome, telefone) VALUES (?, ?)').run(nome, telefone);
+
+    // Gera código de cancelamento (6 dígitos)
+    const codigoCancelamento = String(Math.floor(100000 + Math.random() * 900000));
+
+    const id = transacao(db, () => {
+      return db.prepare(`
+        INSERT INTO agendamentos (cliente_id, barbeiro_id, servico_id, inicio, fim, status, codigo_cancelamento)
+        VALUES (?, ?, ?, ?, ?, 'pendente', ?)
+      `).run(usuario.id, barbeiro_id, servico_id, inicio, fimISO, codigoCancelamento).lastInsertRowid;
+    });
+
+    ctx.status = 201;
+    const agend = db.prepare(`
+      SELECT a.*, s.nome as servico_nome, s.duracao_min as servico_duracao, s.preco_centavos as servico_preco,
+             u.nome as barbeiro_nome,
+             u2.nome as cliente_nome
+      FROM agendamentos a
+      JOIN servicos s ON s.id = a.servico_id
+      JOIN barbeiros b ON b.id = a.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      JOIN usuarios u2 ON u2.id = a.cliente_id
+      WHERE a.id = ?
+    `).get(id);
+    return { agendamento: agendamentoParaJson(agend, true), codigo_cancelamento: codigoCancelamento };
+  });
+
+  // POST /api/agendamentos/:id/cancelar-publico — Cancelamento público com código
+  r.post('/api/agendamentos/:id/cancelar-publico', (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const { codigo } = v.cancelamentoPublicoDados(ctx.body);
+
+    const agend = db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id);
+    if (!agend) throw new ErroHttp(404, 'Agendamento não encontrado.');
+
+    if (agend.codigo_cancelamento !== codigo) {
+      throw new ErroHttp(403, 'Código de cancelamento inválido.');
+    }
+
+    if (agend.status === 'cancelado') {
+      throw new ErroHttp(400, 'Agendamento já cancelado.');
+    }
+
+    if (agend.status === 'concluido') {
+      throw new ErroHttp(400, 'Não é possível cancelar agendamento concluído.');
+    }
+
+    // Verifica regra de 2 horas
+    const agora = new Date();
+    const inicioAgend = new Date(agend.inicio);
+    const diffMs = inicioAgend - agora;
+    const diffHoras = diffMs / (1000 * 60 * 60);
+    if (diffHoras < 2) {
+      throw new ErroHttp(400, 'Cancelamento só permitido com 2 horas de antecedência.');
+    }
+
+    db.prepare("UPDATE agendamentos SET status = 'cancelado', atualizado_em = datetime('now') WHERE id = ?").run(id);
+
+    return { ok: true, mensagem: 'Agendamento cancelado com sucesso.' };
+  });
+
   r.put('/api/agendamentos/:id/confirmar', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
     const id = v.idDaUrl(ctx.params.id);
     const agend = db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id);
@@ -1421,6 +1546,181 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     `).all(clienteId);
 
     return { agendamentos, vendas, observacoes };
+  });
+
+  // ───────────────────────── Dashboard Admin ─────────────────────────
+
+  // Helper: período padrão (últimos 30 dias)
+  function obterPeriodoPadrao(ctx) {
+    const dataFim = ctx.query.data_fim ? v.dataISO(ctx.query.data_fim) : new Date().toISOString().slice(0, 10);
+    const dataInicio = ctx.query.data_inicio
+      ? v.dataISO(ctx.query.data_inicio)
+      : (() => {
+          const d = new Date(dataFim);
+          d.setDate(d.getDate() - 29); // 30 dias inclusive
+          return d.toISOString().slice(0, 10);
+        })();
+    return { dataInicio, dataFim };
+  }
+
+  // Helper: calcula faturamento e atendimentos no período
+  function calcularFaturamentoPeriodo(db, dataInicio, dataFim) {
+    const vendas = db.prepare(`
+      SELECT SUM(total_centavos) as total, COUNT(*) as qtd
+      FROM vendas
+      WHERE status = 'concluida' AND date(criado_em) BETWEEN date(?) AND date(?)
+    `).get(dataInicio, dataFim);
+    return { total: vendas.total || 0, qtd: vendas.qtd || 0 };
+  }
+
+  // GET /api/admin/dashboard - Métricas gerais do dashboard
+  r.get('/api/admin/dashboard', soAdmin, (ctx) => {
+    const { dataInicio, dataFim } = obterPeriodoPadrao(ctx);
+
+    // Faturamento e qtd de vendas no período
+    const { total: faturamentoTotal, qtd: qtdVendas } = calcularFaturamentoPeriodo(db, dataInicio, dataFim);
+    const ticketMedio = qtdVendas > 0 ? Math.round(faturamentoTotal / qtdVendas) : 0;
+
+    // Agendamentos no período - para ocupação e no-show
+    const agendamentos = db.prepare(`
+      SELECT status, COUNT(*) as total FROM agendamentos
+      WHERE date(inicio) BETWEEN date(?) AND date(?)
+      GROUP BY status
+    `).all(dataInicio, dataFim);
+
+    const agendStats = { pendente: 0, confirmado: 0, cancelado: 0, concluido: 0 };
+    for (const a of agendamentos) agendStats[a.status] = a.total;
+    const totalAgendamentos = agendStats.pendente + agendStats.confirmado + agendStats.cancelado + agendStats.concluido;
+
+    // Ocupação = (confirmado + concluido) / total * 100
+    const ocupacao = totalAgendamentos > 0
+      ? Math.round(((agendStats.confirmado + agendStats.concluido) / totalAgendamentos) * 100)
+      : 0;
+
+    // No-show = cancelado / total * 100
+    const noShow = totalAgendamentos > 0
+      ? Math.round((agendStats.cancelado / totalAgendamentos) * 100)
+      : 0;
+
+    return {
+      kpis: {
+        ocupacao_pct: ocupacao,
+        no_show_pct: noShow,
+        ticket_medio_centavos: ticketMedio,
+        faturamento_centavos: faturamentoTotal,
+      }
+    };
+  });
+
+  // GET /api/admin/relatorio-financeiro - Relatório financeiro detalhado
+  r.get('/api/admin/relatorio-financeiro', soAdmin, (ctx) => {
+    const { dataInicio, dataFim } = obterPeriodoPadrao(ctx);
+
+    // 1. Faturamento por serviço (agendamentos concluídos + vendas walk-in)
+    const servicosAgg = db.prepare(`
+      SELECT
+        s.id as servico_id,
+        s.nome as servico_nome,
+        SUM(vi.preco_unit_centavos * vi.quantidade) as total_centavos,
+        SUM(vi.quantidade) as quantidade
+      FROM venda_itens vi
+      JOIN vendas v ON v.id = vi.venda_id
+      JOIN servicos s ON s.id = vi.referencia_id
+      WHERE vi.tipo = 'servico' AND v.status = 'concluida' AND date(v.criado_em) BETWEEN date(?) AND date(?)
+      GROUP BY s.id, s.nome
+      ORDER BY total_centavos DESC
+    `).all(dataInicio, dataFim);
+
+    const faturamentoPorServicoArray = servicosAgg.map(s => ({
+      servico_id: s.servico_id,
+      servico_nome: s.servico_nome,
+      quantidade: s.quantidade,
+      total_centavos: s.total_centavos
+    }));
+
+    // 2. Faturamento por período (dia a dia)
+    const faturamentoPorPeriodo = db.prepare(`
+      SELECT date(criado_em) as data, SUM(total_centavos) as total, COUNT(*) as qtd_atendimentos
+      FROM vendas
+      WHERE status = 'concluida' AND date(criado_em) BETWEEN date(?) AND date(?)
+      GROUP BY date(criado_em)
+      ORDER BY date(criado_em)
+    `).all(dataInicio, dataFim);
+
+    // 3. Faturamento por barbeiro
+    const barbeiroMap = new Map();
+    // Agendamentos concluídos
+    const agendConc = db.prepare(`
+      SELECT b.id as barbeiro_id, u.nome as barbeiro_nome,
+             SUM(s.preco_centavos) as total_centavos, COUNT(*) as qtd
+      FROM agendamentos a
+      JOIN servicos s ON s.id = a.servico_id
+      JOIN barbeiros b ON b.id = a.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE a.status = 'concluido' AND date(a.inicio) BETWEEN date(?) AND date(?)
+      GROUP BY b.id, u.nome
+    `).all(dataInicio, dataFim);
+    for (const a of agendConc) {
+      barbeiroMap.set(a.barbeiro_id, {
+        barbeiro_id: a.barbeiro_id,
+        barbeiro_nome: a.barbeiro_nome,
+        total_centavos: a.total_centavos,
+        qtd_atendimentos: a.qtd
+      });
+    }
+    // Vendas walk-in
+    const vendasBarbeiro = db.prepare(`
+      SELECT b.id as barbeiro_id, u.nome as barbeiro_nome,
+             SUM(v.total_centavos) as total_centavos, COUNT(*) as qtd
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE v.status = 'concluida' AND date(v.criado_em) BETWEEN date(?) AND date(?)
+      GROUP BY b.id, u.nome
+    `).all(dataInicio, dataFim);
+    for (const v of vendasBarbeiro) {
+      const existing = barbeiroMap.get(v.barbeiro_id);
+      if (existing) {
+        existing.total_centavos += v.total_centavos;
+        existing.qtd_atendimentos += v.qtd;
+      } else {
+        barbeiroMap.set(v.barbeiro_id, {
+          barbeiro_id: v.barbeiro_id,
+          barbeiro_nome: v.barbeiro_nome,
+          total_centavos: v.total_centavos,
+          qtd_atendimentos: v.qtd
+        });
+      }
+    }
+
+    const faturamentoPorBarbeiroArray = Array.from(barbeiroMap.values()).map(b => ({
+      ...b,
+      ticket_medio: b.qtd_atendimentos > 0 ? Math.round(b.total_centavos / b.qtd_atendimentos) : 0
+    })).sort((a, b) => b.total_centavos - a.total_centavos);
+
+    // 4. Comissões
+    const comissoes = db.prepare(`
+      SELECT c.barbeiro_id, u.nome as barbeiro_nome,
+             SUM(CASE WHEN c.status = 'a_receber' THEN c.valor_centavos ELSE 0 END) as a_receber,
+             SUM(CASE WHEN c.status = 'pago' THEN c.valor_centavos ELSE 0 END) as pago,
+             SUM(c.valor_centavos) as total
+      FROM comissoes c
+      JOIN venda_itens vi ON vi.id = c.venda_item_id
+      JOIN vendas v ON v.id = vi.venda_id
+      JOIN barbeiros b ON b.id = c.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      WHERE v.criado_em >= ? AND v.criado_em <= ?
+      GROUP BY c.barbeiro_id, u.nome
+      ORDER BY u.nome
+    `).all(dataInicio, dataFim);
+
+    return {
+      periodo: { data_inicio: dataInicio, data_fim: dataFim },
+      faturamento_por_servico: faturamentoPorServicoArray,
+      faturamento_por_periodo: faturamentoPorPeriodo,
+      faturamento_por_barbeiro: faturamentoPorBarbeiroArray,
+      comissoes
+    };
   });
 
   return r;

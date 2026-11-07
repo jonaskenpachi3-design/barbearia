@@ -38,6 +38,18 @@ async function chamar(metodo, url, corpo, cookie) {
   };
 }
 
+// Retorna a próxima data de dia útil (seg-sex) no formato YYYY-MM-DD
+function proximaDataUtil() {
+  const d = new Date();
+  // Se hoje for sábado (6) ou domingo (0), avança para segunda (1)
+  // Se hoje for dia útil, usa hoje
+  const dia = d.getDay();
+  if (dia === 0) d.setDate(d.getDate() + 1); // Domingo -> Segunda
+  else if (dia === 6) d.setDate(d.getDate() + 2); // Sábado -> Segunda
+  // Se for dia útil (1-5), usa hoje
+  return d.toISOString().split('T')[0];
+}
+
 async function loginAdmin() {
   const r = await chamar('POST', '/api/auth/login', ADMIN);
   assert.equal(r.status, 200);
@@ -715,7 +727,7 @@ test('cliente observacoes: barbeiro adiciona anotação', async () => {
   const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_obs1');
 
   // Cria agendamento e conclui para ter cliente no histórico
-  const data = new Date().toISOString().split('T')[0];
+  const data = proximaDataUtil();
   const inicio = `${data}T10:00:00`;
   const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
   await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/confirmar`, {}, loginBarbeiro.cookie);
@@ -737,7 +749,7 @@ test('cliente historico: agendamentos, vendas e observações', async () => {
   const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_hist1');
 
   // Agendamento
-  const data = new Date().toISOString().split('T')[0];
+  const data = proximaDataUtil();
   const inicio = `${data}T10:00:00`;
   const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
   await chamar('PUT', `/api/agendamentos/${ag.corpo.agendamento.id}/confirmar`, {}, loginBarbeiro.cookie);
@@ -764,7 +776,7 @@ test('cliente historico: agendamentos, vendas e observações', async () => {
 
 test('agendamentos: barbeiro/admin conclui agendamento', async () => {
   const { admin, corte, barbeiro, cliente, loginBarbeiro } = await criarCenarioFase3('_ag11');
-  const data = new Date().toISOString().split('T')[0];
+  const data = proximaDataUtil();
   const inicio = `${data}T10:00:00`;
 
   const criado = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: corte.id, inicio }, cliente);
@@ -825,4 +837,280 @@ test('caixa: abrir, sangria, fechar', async () => {
   // Não pode fechar duas vezes
   const dup = await chamar('PUT', `/api/caixa/${caixaId}/fechar`, { valor_final_centavos: esperado }, admin);
   assert.equal(dup.status, 400);
+});
+
+// ─── Dashboard Admin ───
+test('admin dashboard: retorna KPIs (ocupação, no-show, ticket médio, faturamento)', async () => {
+  const admin = await loginAdmin();
+
+  // Cria um serviço e barbeiro
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Dashboard', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Dashboard', email: 'joao.dashboard@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
+  }, admin)).corpo.barbeiro;
+
+  // Jornada: seg-sex 09:00-18:00
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  // Cria agendamento em um dia útil (usa data fixa para evitar fim de semana)
+  const dataUtil = '2025-01-15'; // Quarta-feira
+  const inicio = `${dataUtil}T10:00:00`;
+  const cliente = (await chamar('POST', '/api/auth/cadastro', {
+    nome: 'Cliente Dash', email: 'clientedash@teste.com', senha: 'senha1234',
+  })).cookie;
+
+  const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: servico.id, inicio }, cliente);
+  assert.equal(ag.status, 201);
+  const agId = ag.corpo.agendamento.id;
+
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao.dashboard@barbearia.com', senha: 'senha1234' });
+  await chamar('PUT', `/api/agendamentos/${agId}/confirmar`, {}, loginBarbeiro.cookie);
+  await chamar('PUT', `/api/agendamentos/${agId}/concluir`, {}, loginBarbeiro.cookie);
+
+  // Cria venda walk-in
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: servico.id, quantidade: 1 }],
+    forma_pagamento: 'cartao',
+  }, loginBarbeiro.cookie);
+
+  // Abre caixa para o dia
+  await chamar('POST', '/api/caixa/abrir', { valor_inicial_centavos: 10000, observacao: 'Teste dashboard' }, admin);
+
+  // Chama dashboard
+  const dash = await chamar('GET', '/api/admin/dashboard', undefined, admin);
+  assert.equal(dash.status, 200);
+  assert.ok(typeof dash.corpo.kpis.ocupacao_pct === 'number');
+  assert.ok(typeof dash.corpo.kpis.no_show_pct === 'number');
+  assert.ok(typeof dash.corpo.kpis.ticket_medio_centavos === 'number');
+  assert.ok(typeof dash.corpo.kpis.faturamento_centavos === 'number');
+  assert.ok(dash.corpo.kpis.faturamento_centavos > 0);
+});
+
+test('admin dashboard: nega acesso para não-admin', async () => {
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Dash2', email: 'joao.dash2@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [],
+  }, await loginAdmin())).corpo.barbeiro;
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao.dash2@barbearia.com', senha: 'senha1234' });
+
+  const dash = await chamar('GET', '/api/admin/dashboard', undefined, loginBarbeiro.cookie);
+  assert.equal(dash.status, 403);
+});
+
+test('admin relatorio-financeiro: retorna faturamento por serviço, período e barbeiro', async () => {
+  const admin = await loginAdmin();
+
+  // Cria serviços e barbeiro
+  const servico1 = (await chamar('POST', '/api/servicos', { nome: 'Corte Rel', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico2 = (await chamar('POST', '/api/servicos', { nome: 'Barba Rel', duracao_min: 20, preco_centavos: 3000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Rel', email: 'joao.rel@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico1.id, servico2.id],
+  }, admin)).corpo.barbeiro;
+
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  const dataUtil = '2025-01-15';
+  const inicio = `${dataUtil}T10:00:00`;
+  const cliente = (await chamar('POST', '/api/auth/cadastro', {
+    nome: 'Cliente Rel', email: 'clienterel@teste.com', senha: 'senha1234',
+  })).cookie;
+
+  const ag = await chamar('POST', '/api/agendamentos', { barbeiro_id: barbeiro.id, servico_id: servico1.id, inicio }, cliente);
+  const agId = ag.corpo.agendamento.id;
+
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao.rel@barbearia.com', senha: 'senha1234' });
+  await chamar('PUT', `/api/agendamentos/${agId}/confirmar`, {}, loginBarbeiro.cookie);
+  await chamar('PUT', `/api/agendamentos/${agId}/concluir`, {}, loginBarbeiro.cookie);
+
+  await chamar('POST', '/api/vendas', {
+    barbeiro_id: barbeiro.id,
+    itens: [{ tipo: 'servico', referencia_id: servico2.id, quantidade: 1 }],
+    forma_pagamento: 'cartao',
+  }, loginBarbeiro.cookie);
+
+  await chamar('POST', '/api/caixa/abrir', { valor_inicial_centavos: 10000, observacao: 'Teste relatório' }, admin);
+
+  const rel = await chamar('GET', '/api/admin/relatorio-financeiro', undefined, admin);
+  assert.equal(rel.status, 200);
+  assert.ok(Array.isArray(rel.corpo.faturamento_por_servico));
+  assert.ok(Array.isArray(rel.corpo.faturamento_por_periodo));
+  assert.ok(Array.isArray(rel.corpo.faturamento_por_barbeiro));
+  assert.ok(Array.isArray(rel.corpo.comissoes));
+  assert.ok(rel.corpo.faturamento_por_servico.length > 0);
+  assert.ok(rel.corpo.faturamento_por_periodo.length > 0);
+  assert.ok(rel.corpo.faturamento_por_barbeiro.length > 0);
+});
+
+test('admin relatorio-financeiro: aceita parâmetros data_inicio e data_fim', async () => {
+  const admin = await loginAdmin();
+  const rel = await chamar('GET', '/api/admin/relatorio-financeiro?data_inicio=2025-01-01&data_fim=2025-01-31', undefined, admin);
+  assert.equal(rel.status, 200);
+  assert.ok(Array.isArray(rel.corpo.faturamento_por_servico));
+});
+
+test('admin relatorio-financeiro: nega acesso para não-admin', async () => {
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Rel2', email: 'joao.rel2@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [],
+  }, await loginAdmin())).corpo.barbeiro;
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao.rel2@barbearia.com', senha: 'senha1234' });
+
+  const rel = await chamar('GET', '/api/admin/relatorio-financeiro', undefined, loginBarbeiro.cookie);
+  assert.equal(rel.status, 403);
+});
+
+// ─── Agendamento Público (nome + telefone) ───
+test('agendamento publico: cliente agenda só com nome + telefone', async () => {
+  const admin = await loginAdmin();
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Público', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Público', email: 'joao.publico@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
+  }, admin)).corpo.barbeiro;
+
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  // Abre caixa
+  await chamar('POST', '/api/caixa/abrir', { valor_inicial_centavos: 10000, observacao: 'Teste público' }, admin);
+
+  // Próxima quarta-feira (dia 3) no futuro
+  const dataUtil = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + ((3 - d.getDay() + 7) % 7 || 7)); // Próxima quarta
+    return d.toISOString().split('T')[0];
+  })();
+  const inicio = `${dataUtil}T10:00:00`;
+
+  // Agenda sem login
+  const ag = await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente Público',
+    telefone: '(11) 99999-8888',
+    barbeiro_id: barbeiro.id,
+    servico_id: servico.id,
+    inicio
+  });
+  assert.equal(ag.status, 201);
+  assert.ok(ag.corpo.agendamento);
+  assert.equal(ag.corpo.agendamento.cliente?.nome, 'Cliente Público');
+  assert.ok(ag.corpo.codigo_cancelamento);
+  assert.equal(ag.corpo.codigo_cancelamento.length, 6);
+
+  const agendamentoId = ag.corpo.agendamento.id;
+  const codigoCancelamento = ag.corpo.codigo_cancelamento;
+
+  // Verifica que agendamento aparece na agenda do barbeiro
+  const loginBarbeiro = await chamar('POST', '/api/auth/login', { email: 'joao.publico@barbearia.com', senha: 'senha1234' });
+  const agendaBarbeiro = await chamar('GET', `/api/agenda-barbeiro?data=${dataUtil}`, undefined, loginBarbeiro.cookie);
+  assert.equal(agendaBarbeiro.status, 200);
+  assert.ok(agendaBarbeiro.corpo.agendamentos.some(a => a.id === agendamentoId));
+
+  // Tenta cancelar com código errado
+  const cancelarErrado = await chamar('POST', `/api/agendamentos/${agendamentoId}/cancelar-publico`, { codigo: '000000' });
+  assert.equal(cancelarErrado.status, 403);
+
+  // Cancela com código correto
+  const cancelar = await chamar('POST', `/api/agendamentos/${agendamentoId}/cancelar-publico`, { codigo: codigoCancelamento });
+  assert.equal(cancelar.status, 200);
+  assert.equal(cancelar.corpo.mensagem, 'Agendamento cancelado com sucesso.');
+
+  // Verifica que está cancelado
+  const agendaApos = await chamar('GET', `/api/agenda-barbeiro?data=${dataUtil}`, undefined, loginBarbeiro.cookie);
+  const agCancelado = agendaApos.corpo.agendamentos.find(a => a.id === agendamentoId);
+  assert.equal(agCancelado.status, 'cancelado');
+});
+
+test('agendamento publico: valida dados obrigatórios', async () => {
+  const res = await chamar('POST', '/api/agendamentos-publico', { nome: 'A', telefone: '123' });
+  assert.equal(res.status, 400);
+});
+
+test('agendamento publico: impede horario fora da jornada', async () => {
+  const admin = await loginAdmin();
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Teste', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Teste', email: 'joao.teste@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
+  }, admin)).corpo.barbeiro;
+
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  const dataUtil = '2025-01-15';
+  const inicioFora = `${dataUtil}T07:00:00`; // Antes das 09:00
+
+  const res = await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente Teste', telefone: '(11) 99999-7777', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio: inicioFora
+  });
+  assert.equal(res.status, 400);
+  assert.ok(res.corpo.erro.includes('fora da jornada'));
+});
+
+test('agendamento publico: impede conflito de horario', async () => {
+  const admin = await loginAdmin();
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Conflito', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Conflito', email: 'joao.conflito@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
+  }, admin)).corpo.barbeiro;
+
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  const dataUtil = '2025-01-15';
+  const inicio = `${dataUtil}T10:00:00`;
+
+  // Primeiro agendamento
+  await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente 1', telefone: '(11) 99999-1111', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio
+  });
+
+  // Segundo no mesmo horário deve falhar
+  const res = await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente 2', telefone: '(11) 99999-2222', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio
+  });
+  assert.equal(res.status, 409);
+  assert.ok(res.corpo.erro.includes('conflito'));
+});
+
+test('agendamento publico: cancelamento so ate 2h antes', async () => {
+  const admin = await loginAdmin();
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Cancel', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const barbeiro = (await chamar('POST', '/api/barbeiros', {
+    nome: 'João Cancel', email: 'joao.cancel@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
+  }, admin)).corpo.barbeiro;
+
+  const horarios = [];
+  for (let d = 1; d <= 5; d++) horarios.push({ dia_semana: d, inicio: '09:00', fim: '18:00' });
+  await chamar('PUT', `/api/barbeiros/${barbeiro.id}/horarios`, { horarios }, admin);
+
+  const dataUtil = '2025-01-15';
+  const inicio = `${dataUtil}T10:00:00`;
+
+  const ag = await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente Cancel', telefone: '(11) 99999-3333', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio
+  });
+  const agendamentoId = ag.corpo.agendamento.id;
+  const codigo = ag.corpo.codigo_cancelamento;
+
+  // Tenta cancelar "agora" (data do teste é no passado, mas a regra de 2h usa Date.now())
+  // Como a data do agendamento é 2025-01-15 (passado), o cancelamento deve falhar por ser < 2h
+  // Para testar corretamente, usamos uma data futura
+  const futuro = new Date();
+  futuro.setDate(futuro.getDate() + 2); // daqui 2 dias
+  const dataFutura = futuro.toISOString().split('T')[0];
+  const inicioFuturo = `${dataFutura}T14:00:00`;
+
+  const ag2 = await chamar('POST', '/api/agendamentos-publico', {
+    nome: 'Cliente Futuro', telefone: '(11) 99999-4444', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio: inicioFuturo
+  });
+  const agendamentoId2 = ag2.corpo.agendamento.id;
+  const codigo2 = ag2.corpo.codigo_cancelamento;
+
+  // Cancela com mais de 2h de antecedência - deve funcionar
+  const cancelar = await chamar('POST', `/api/agendamentos/${agendamentoId2}/cancelar-publico`, { codigo: codigo2 });
+  assert.equal(cancelar.status, 200);
 });

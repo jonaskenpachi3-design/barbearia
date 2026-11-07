@@ -55,18 +55,20 @@ CREATE INDEX IF NOT EXISTS idx_horarios_barbeiro ON horarios_trabalho (barbeiro_
 
 -- Fase 2: Agendamentos
 CREATE TABLE IF NOT EXISTS agendamentos (
-  id             INTEGER PRIMARY KEY,
-  cliente_id     INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  barbeiro_id    INTEGER NOT NULL REFERENCES barbeiros(id) ON DELETE CASCADE,
-  servico_id     INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
-  inicio         TEXT    NOT NULL,                    -- ISO 8601: 'YYYY-MM-DDTHH:MM:SS'
-  fim            TEXT    NOT NULL,                    -- ISO 8601
-  status         TEXT    NOT NULL CHECK (status IN ('pendente','confirmado','cancelado','concluido')),
-  criado_em      TEXT    NOT NULL DEFAULT (datetime('now')),
-  atualizado_em  TEXT    NOT NULL DEFAULT (datetime('now'))
+  id                   INTEGER PRIMARY KEY,
+  cliente_id           INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  barbeiro_id          INTEGER NOT NULL REFERENCES barbeiros(id) ON DELETE CASCADE,
+  servico_id           INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
+  inicio               TEXT    NOT NULL,                    -- ISO 8601: 'YYYY-MM-DDTHH:MM:SS'
+  fim                  TEXT    NOT NULL,                    -- ISO 8601
+  status               TEXT    NOT NULL CHECK (status IN ('pendente','confirmado','cancelado','concluido')),
+  codigo_cancelamento  TEXT,                                -- 6 dígitos para cancelamento público
+  criado_em            TEXT    NOT NULL DEFAULT (datetime('now')),
+  atualizado_em        TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_agend_barbeiro_data ON agendamentos (barbeiro_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_agend_cliente ON agendamentos (cliente_id, inicio);
+-- idx_agend_codigo é criado na migração (após adicionar a coluna)
 
 -- Fase 2: Bloqueios manuais (feriado, manutenção, almoço estendido)
 CREATE TABLE IF NOT EXISTS bloqueios (
@@ -189,6 +191,15 @@ CREATE TABLE IF NOT EXISTS cliente_observacoes (
   criado_em       TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_obs_cliente ON cliente_observacoes (cliente_id, criado_em DESC);
+
+-- Fase 4: Clientes simplificados (apenas nome + telefone, sem login)
+CREATE TABLE IF NOT EXISTS clientes_simples (
+  id            INTEGER PRIMARY KEY,
+  nome          TEXT    NOT NULL,
+  telefone      TEXT    NOT NULL UNIQUE,
+  criado_em     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_clientes_simples_telefone ON clientes_simples (telefone);
 `;
 
 function abrirBanco(arquivo) {
@@ -197,6 +208,15 @@ function abrirBanco(arquivo) {
   db.exec('PRAGMA foreign_keys = ON;');
   if (arquivo !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
   db.exec(ESQUEMA);
+
+  // Migração: adiciona codigo_cancelamento em agendamentos se não existir
+  const cols = db.prepare("PRAGMA table_info(agendamentos)").all();
+  const temCodigo = cols.some(c => c.name === 'codigo_cancelamento');
+  if (!temCodigo) {
+    db.exec("ALTER TABLE agendamentos ADD COLUMN codigo_cancelamento TEXT");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_agend_codigo ON agendamentos (codigo_cancelamento)");
+  }
+
   return db;
 }
 

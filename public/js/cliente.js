@@ -154,7 +154,7 @@
       if (!agendamentos.length) {
         container.innerHTML = '';
         container.append(el('p', { class: 'vazio-agenda' },
-          el('span', { class: 'icon', text: '📅' }),
+          el('span', { class: 'icon vazio-icon', innerHTML: '<svg class="icon-svg"><use href="icons/icons.svg#icon-calendar"/></svg>' }),
           el('div', { text: 'Nenhum agendamento' }),
           el('p', { class: 'small', text: podeCancelar ? 'Seus próximos agendamentos aparecerão aqui.' : 'Seu histórico aparecerá aqui.' })
         ));
@@ -176,8 +176,8 @@
           ),
           el('div', { class: 'detalhes' },
             el('span', { text: a.servico?.nome || 'Serviço' }),
-            el('span', { text: a.barbeiro?.nome ? `👤 ${a.barbeiro.nome}` : '' }),
-            el('span', { text: a.servico?.preco_centavos ? `💰 ${brl(a.servico.preco_centavos)}` : '' })
+            el('span', { text: a.barbeiro?.nome ? `${a.barbeiro.nome}` : '' }),
+            el('span', { class: 'price', text: a.servico?.preco_centavos ? `${brl(a.servico.preco_centavos)}` : '' })
           )
         );
 

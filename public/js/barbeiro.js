@@ -64,7 +64,9 @@
         if (!agendamentos.length) {
           container.innerHTML = '';
           container.append(el('p', { class: 'vazio-agenda' },
-            el('span', { class: 'icon', text: '📅' }),
+            el('span', { class: 'icon', 'aria-hidden': 'true' },
+              el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-calendar' }))
+            ),
             el('div', { text: 'Nenhum agendamento para esta data' }),
             el('p', { class: 'small', text: status ? `Filtro: ${status}` : '' })
           ));
@@ -85,9 +87,9 @@
             ),
             el('div', { class: 'detalhes' },
               el('span', { text: a.servico?.nome || 'Serviço' }),
-              el('span', { text: a.cliente?.nome ? `👤 ${a.cliente.nome}` : '' }),
-              el('span', { text: a.cliente?.telefone ? `📞 ${a.cliente.telefone}` : '' }),
-              el('span', { text: a.servico?.preco_centavos ? `💰 ${brl(a.servico.preco_centavos)}` : '' })
+              el('span', { text: a.cliente?.nome ? `Cliente: ${a.cliente.nome}` : '' }),
+              el('span', { text: a.cliente?.telefone ? `Tel: ${a.cliente.telefone}` : '' }),
+              el('span', { text: a.servico?.preco_centavos ? `Preço: ${brl(a.servico.preco_centavos)}` : '' })
             )
           );
 
@@ -182,7 +184,9 @@
         if (!comissoes.length) {
           container.innerHTML = '';
           container.append(el('p', { class: 'vazio-agenda' },
-            el('span', { class: 'icon', text: '💰' }),
+            el('span', { class: 'icon', 'aria-hidden': 'true' },
+              el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-money' }))
+            ),
             el('div', { text: 'Nenhuma comissão encontrada' })
           ));
           $('bc-resumo').innerHTML = '';
@@ -198,7 +202,7 @@
             el('td', { text: dataVenda }),
             el('td', { text: horaVenda }),
             el('td', { text: c.item_nome || `ID ${c.referencia_id}` }),
-            el('td', { text: c.item_tipo === 'servico' ? '✂️ Serviço' : '📦 Produto' }),
+            el('td', { text: c.item_tipo === 'servico' ? 'Serviço' : 'Produto' }),
             el('td', { text: brl(c.preco_unit_centavos) }),
             el('td', { text: String(c.quantidade) }),
             el('td', { text: brl(c.valor_centavos) }),
@@ -320,7 +324,7 @@
         if (!clientes.length) {
           container.innerHTML = '';
           container.append(el('p', { class: 'vazio-agenda' },
-            el('span', { class: 'icon', text: '👥' }),
+            el('span', { class: 'icon vazio-icon', innerHTML: '<svg class="icon-svg"><use href="icons/icons.svg#icon-users"/></svg>' }),
             el('div', { text: busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente atendido ainda' })
           ));
           return;
@@ -335,9 +339,9 @@
               el('span', { class: 'pill pill-ok', text: `${c.servicos.length} atendimentos` })
             ),
             el('div', { class: 'detalhes' },
-              el('span', { text: c.telefone ? `📞 ${c.telefone}` : '' }),
-              el('span', { text: `💰 Total: ${brl(c.total)}` }),
-              el('span', { text: `📅 Última visita: ${ultVisita}` })
+              el('span', { text: c.telefone ? `Tel: ${c.telefone}` : '' }),
+              el('span', { text: `Total: ${brl(c.total)}` }),
+              el('span', { text: `Última visita: ${ultVisita}` })
             ),
             el('div', { class: 'acoes' },
               el('button', {
@@ -360,7 +364,7 @@
         let html = `<h3>Histórico de ${clienteNome}</h3>`;
 
         if (agendamentos.length) {
-          html += '<h4>✂️ Agendamentos concluídos</h4><ul>';
+          html += '<h4><svg class="icon-svg inline-icon"><use href="icons/icons.svg#icon-scissors"/></svg> Agendamentos concluídos</h4><ul>';
           for (const a of agendamentos) {
             const dt = new Date(a.inicio).toLocaleDateString('pt-BR');
             const hora = new Date(a.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -370,7 +374,7 @@
         }
 
         if (vendas.length) {
-          html += '<h4>💰 Vendas (walk-in / produtos)</h4><ul>';
+          html += '<h4><svg class="icon-svg inline-icon"><use href="icons/icons.svg#icon-money"/></svg> Vendas (walk-in / produtos)</h4><ul>';
           for (const v of vendas) {
             const dt = new Date(v.criado_em).toLocaleDateString('pt-BR');
             const hora = new Date(v.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -378,7 +382,8 @@
             if (v.itens.length) {
               html += '<ul>';
               for (const item of v.itens) {
-                html += `<li>${item.tipo === 'servico' ? '✂️' : '📦'} ${item.referencia_nome} × ${item.quantidade} — ${brl(item.preco_unit_centavos * item.quantidade)}</li>`;
+                const icon = item.tipo === 'servico' ? 'icon-scissors' : 'icon-box';
+                html += `<li><svg class="icon-svg inline-icon"><use href="icons/icons.svg#${icon}"/></svg> ${item.referencia_nome} × ${item.quantidade} — ${brl(item.preco_unit_centavos * item.quantidade)}</li>`;
               }
               html += '</ul>';
             }

@@ -235,6 +235,59 @@ dialog::backdrop { background: rgba(20, 22, 26, .6); }
 .vazio-agenda { text-align: center; padding: 40px 20px; color: var(--muted); }
 .vazio-agenda .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
 
+/* SVG Icons */
+.icon-svg {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.vazio-icon {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  margin-bottom: 12px;
+}
+.vazio-icon .icon-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.kpi-icon-svg {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kpi-icon-svg .icon-svg {
+  width: 28px;
+  height: 28px;
+}
+
+.confirmacao-icon .icon-svg {
+  width: 64px;
+  height: 64px;
+}
+
+.inline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.inline-icon .icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* Dialog form improvements */
 .field-datetime { display: flex; flex-direction: column; gap: 6px; }
 .field-datetime .input { min-height: 44px; }
@@ -244,3 +297,177 @@ dialog::backdrop { background: rgba(20, 22, 26, .6); }
 .pill-confirmado { background: var(--ok-bg); color: var(--ok); }
 .pill-cancelado { background: #ece8de; color: var(--muted); }
 .pill-concluido { background: var(--ok-bg); color: var(--ok); }
+
+/* Dashboard */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  transition: transform .2s, box-shadow .2s;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+.kpi-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.kpi-content { flex: 1; min-width: 0; }
+.kpi-label {
+  font: 500 13px 'Inter', sans-serif;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.kpi-value {
+  font: 700 24px 'Barlow Condensed', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+}
+.chart-card h2 {
+  font: 600 16px 'Inter', sans-serif;
+  margin-bottom: 16px;
+  color: var(--ink);
+}
+.chart-card canvas {
+  width: 100% !important;
+  height: 280px !important;
+}
+
+/* ===== Agendamento Público ===== */
+.agendar-shell { min-height: 100vh; }
+.agendar-main { max-width: 480px; margin: 0 auto; padding: 24px 16px; }
+.agendar-header { text-align: center; margin-bottom: 32px; }
+.agendar-header .brand { color: var(--accent); margin-bottom: 8px; }
+.agendar-header h1 { font-size: 28px; margin-bottom: 4px; }
+.sub { color: var(--muted); font-size: 15px; }
+
+.passo { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.passo-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.btn-voltar {
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.btn-voltar:hover { background: var(--bone); }
+
+.form-agendar { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font: 500 14px 'Inter', sans-serif; color: var(--ink); }
+.input {
+  min-height: 48px; padding: 12px 16px; border: 1px solid var(--line);
+  border-radius: 12px; font: 16px 'Inter', sans-serif; background: var(--card);
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #e0a28533; }
+.erro { min-height: 20px; color: var(--bad); font-size: 13px; }
+.erro-toast { background: var(--bad-bg) !important; color: var(--bad) !important; }
+
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-full { width: 100%; }
+
+/* Grid de serviços/barbeiros */
+.servicos-grid, .barbeiros-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.servico-card, .barbeiro-card {
+  background: var(--card); border: 2px solid var(--line); border-radius: 14px;
+  padding: 16px; cursor: pointer; text-align: left;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+.servico-card:hover, .barbeiro-card:hover { border-color: var(--accent); }
+.servico-card.selecionado, .barbeiro-card.selecionado {
+  border-color: var(--accent); box-shadow: 0 0 0 3px #e0a28533; background: #fdf8f5;
+}
+.servico-card strong, .barbeiro-card strong { display: block; font-size: 15px; margin-bottom: 4px; }
+.servico-meta { font-size: 13px; color: var(--muted); }
+.barbeiro-avatar {
+  width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px;
+  margin: 0 auto 12px;
+}
+.barbeiro-servicos { font-size: 12px; color: var(--muted); }
+
+/* Slots de horário */
+.slots { display: flex; flex-wrap: wrap; gap: 8px; }
+.slot-btn {
+  flex: 1 1 calc(25% - 6px); min-width: 70px; min-height: 48px;
+  border: 2px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 12px; font: 600 15px 'Inter', sans-serif; cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.slot-btn:hover { border-color: var(--accent); background: #fdf8f5; }
+.slot-btn.selecionado { border-color: var(--accent); background: var(--accent); color: #fff; }
+.slot-btn:focus-visible { outline: 3px solid #e0a285; outline-offset: 2px; }
+
+/* Confirmação */
+.confirmacao-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 32px 24px; text-align: center; }
+.confirmacao-icon { font-size: 56px; margin-bottom: 16px; }
+.confirmacao-card h2 { font: 700 24px 'Barlow Condensed', sans-serif; margin-bottom: 24px; }
+.confirmacao-detalhes {
+  display: grid; grid-template-columns: auto 1fr; gap: 12px 16px;
+  text-align: left; margin-bottom: 24px; padding: 16px; background: var(--bone); border-radius: 12px;
+}
+.confirmacao-detalhes dt { color: var(--muted); font-size: 13px; font-weight: 500; }
+.confirmacao-detalhes dd { font: 600 15px 'Inter', sans-serif; margin: 0; }
+
+.codigo-cancelamento { margin-top: 24px; padding: 16px; background: #fdf8f5; border-radius: 12px; border: 1px dashed var(--accent); }
+.codigo-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.codigo {
+  display: inline-block; font: 700 32px 'Barlow Condensed', sans-serif; letter-spacing: 6px;
+  color: var(--accent); background: var(--card); padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.codigo-aviso { font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 0; }
+
+.confirmacao-acoes { margin-top: 24px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 14px 24px; border-radius: 12px; font: 500 14px 'Inter', sans-serif;
+  background: var(--ink); color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 1000; animation: slideUp 0.3s ease;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* Responsivo */
+@media (max-width: 420px) {
+  .servicos-grid, .barbeiros-grid { grid-template-columns: 1fr; }
+  .slot-btn { flex: 1 1 calc(33% - 6px); }
+  .confirmacao-detalhes { grid-template-columns: 1fr; gap: 8px; }
+}

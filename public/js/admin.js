@@ -75,7 +75,7 @@
   // ───────────── navegação ─────────────
 
   function mostrar(secao) {
-    for (const nome of ['servicos', 'barbeiros', 'agenda', 'bloqueios', 'produtos', 'pdv', 'caixa', 'comissoes']) {
+    for (const nome of ['dashboard', 'servicos', 'barbeiros', 'agenda', 'bloqueios', 'produtos', 'pdv', 'caixa', 'comissoes']) {
       $(`view-${nome}`).hidden = nome !== secao;
       const botao = $(`nav-${nome}`);
       if (botao) {
@@ -84,6 +84,7 @@
       }
     }
   }
+  $('nav-dashboard').addEventListener('click', () => { mostrar('dashboard'); carregarDashboard(); });
   $('nav-servicos').addEventListener('click', () => mostrar('servicos'));
   $('nav-barbeiros').addEventListener('click', () => mostrar('barbeiros'));
   $('nav-agenda').addEventListener('click', () => { mostrar('agenda'); carregarAgendaAdmin(); });
@@ -93,6 +94,167 @@
   $('nav-caixa').addEventListener('click', () => { mostrar('caixa'); carregarCaixaHistorico(); });
   $('nav-comissoes').addEventListener('click', () => { mostrar('comissoes'); carregarComissoes(); carregarComissoesResumo(); });
   $('sair').addEventListener('click', sair);
+
+  // ───────────── Dashboard ─────────────
+
+  async function carregarDashboard() {
+    try {
+      // Carrega KPIs
+      const { kpis } = await api.get('/api/admin/dashboard');
+      atualizarKPIs(kpis);
+
+      // Carrega dados para gráficos e tabela
+      const relatorio = await api.get('/api/admin/relatorio-financeiro');
+      desenharGraficoFaturamentoDia(relatorio.faturamento_por_periodo);
+      desenharGraficoFaturamentoServico(relatorio.faturamento_por_servico);
+      desenharTabelaFaturamentoBarbeiro(relatorio.faturamento_por_barbeiro);
+    } catch (erro) {
+      toast(erro.message, true);
+      $('kpi-cards').innerHTML = '<div class="vazio">Erro ao carregar dashboard.</div>';
+    }
+  }
+
+  function atualizarKPIs(kpis) {
+    const container = $('kpi-cards');
+    const cards = [
+      { titulo: 'Ocupação', valor: `${kpis.ocupacao_pct}%`, cor: 'var(--accent)', icone: 'icon-chart' },
+      { titulo: 'No-show', valor: `${kpis.no_show_pct}%`, cor: 'var(--bad)', icone: 'icon-alert' },
+      { titulo: 'Ticket Médio', valor: brl(kpis.ticket_medio_centavos), cor: 'var(--ok)', icone: 'icon-percent' },
+      { titulo: 'Faturamento (30d)', valor: brl(kpis.faturamento_centavos), cor: 'var(--muted)', icone: 'icon-money' },
+    ];
+
+    container.replaceChildren(...cards.map((c) => el('div', { class: 'kpi-card' },
+      el('div', { class: 'kpi-icon', style: `background: ${c.cor}20; color: ${c.cor}` },
+        el('svg', { class: 'kpi-icon-svg', 'aria-hidden': 'true' }, el('use', { href: `icons/icons.svg#${c.icone}` }))
+      ),
+      el('div', { class: 'kpi-content' },
+        el('div', { class: 'kpi-label', text: c.titulo }),
+        el('div', { class: 'kpi-value', style: `color: ${c.cor}`, text: c.valor })
+      ))));
+  }
+
+  // Desenha gráfico de barras vertical simples em canvas
+  function desenharGraficoBarras(canvasId, dados, { corBarra = 'var(--cor-primaria)', corTexto = 'var(--ink)', maxBarras = 30 } = {}) {
+    const canvas = $(canvasId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const width = Math.max(rect.width - 32, 300);
+    const height = 300;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.scale(dpr, dpr);
+
+    // Limpa
+    ctx.clearRect(0, 0, width, height);
+
+    if (!dados || !dados.length) {
+      ctx.font = '14px Inter';
+      ctx.fillStyle = 'var(--muted)';
+      ctx.textAlign = 'center';
+      ctx.fillText('Sem dados para exibir', width / 2, height / 2);
+      return;
+    }
+
+    // Limita número de barras
+    const dadosExibicao = dados.slice(-maxBarras);
+    const maxValor = Math.max(...dadosExibicao.map(d => d.total || d.valor || 0), 1);
+    const padding = 40;
+    const bottomPadding = 30;
+    const topPadding = 20;
+    const chartWidth = width - 2 * padding;
+    const chartHeight = height - topPadding - bottomPadding;
+    const barWidth = Math.max(chartWidth / dadosExibicao.length * 0.7, 8);
+    const gap = (chartWidth - barWidth * dadosExibicao.length) / (dadosExibicao.length + 1);
+
+    // Eixo Y (linhas de grade)
+    ctx.strokeStyle = 'var(--line)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = topPadding + (chartHeight / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(width - padding, y);
+      ctx.stroke();
+
+      // Valores no eixo Y
+      const val = maxValor * (1 - i / 4);
+      ctx.font = '11px Inter';
+      ctx.fillStyle = 'var(--muted)';
+      ctx.textAlign = 'right';
+      ctx.fillText(brl(Math.round(val)), padding - 8, y + 4);
+    }
+
+    // Barras
+    for (let i = 0; i < dadosExibicao.length; i++) {
+      const item = dadosExibicao[i];
+      const valor = item.total || item.valor || 0;
+      const barHeight = (valor / maxValor) * chartHeight;
+      const x = padding + gap + i * (barWidth + gap);
+      const y = topPadding + chartHeight - barHeight;
+
+      // Gradiente para a barra
+      const gradient = ctx.createLinearGradient(0, topPadding + chartHeight, 0, topPadding);
+      gradient.addColorStop(0, corBarra);
+      gradient.addColorStop(1, corBarra + 'CC');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      const radius = 4;
+      ctx.roundRect(x, y, barWidth, barHeight, radius);
+      ctx.fill();
+
+      // Label no eixo X (data ou nome do serviço)
+      const label = item.data ? new Date(item.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        : (item.nome || '').substring(0, 12);
+      ctx.font = '10px Inter';
+      ctx.fillStyle = 'var(--muted)';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + barWidth / 2, height - bottomPadding + 16);
+    }
+
+    // Eixo X
+    ctx.strokeStyle = 'var(--line)';
+    ctx.beginPath();
+    ctx.moveTo(padding, topPadding + chartHeight);
+    ctx.lineTo(width - padding, topPadding + chartHeight);
+    ctx.stroke();
+  }
+
+  function desenharGraficoFaturamentoDia(dados) {
+    // Formata dados: { data, total }
+    const dadosFormatados = (dados || []).map(d => ({ data: d.data, total: d.total }));
+    desenharGraficoBarras('chart-faturamento-dia', dadosFormatados, { corBarra: 'var(--cor-primaria)' });
+  }
+
+  function desenharGraficoFaturamentoServico(dados) {
+    // Formata dados: { nome, total }
+    const dadosFormatados = (dados || []).map(d => ({ nome: d.servico_nome || d.nome, total: d.total_centavos || d.total }));
+    desenharGraficoBarras('chart-faturamento-servico', dadosFormatados, { corBarra: 'var(--cor-sucesso)', maxBarras: 10 });
+  }
+
+  function desenharTabelaFaturamentoBarbeiro(dados) {
+    const container = $('tabela-faturamento-barbeiro');
+    if (!dados || !dados.length) {
+      container.innerHTML = '<div class="vazio">Nenhum faturamento por barbeiro no período.</div>';
+      return;
+    }
+
+    const linhas = dados.map((b) => el('tr', {},
+      el('td', {}, el('strong', { text: b.barbeiro_nome })),
+      el('td', { class: 'num', text: brl(b.total_centavos || b.faturamento || 0) }),
+      el('td', { class: 'num', text: String(b.qtd_atendimentos || b.qtd_vendas || 0) }),
+      el('td', { class: 'num', text: brl(Math.round((b.comissoes || 0) / (b.total_centavos || b.faturamento || 1) * 100)) + '%' })));
+
+    container.replaceChildren(tabela(
+      [['Barbeiro'], ['Faturamento', 'num'], ['Atendimentos', 'num'], ['% Comissão', 'num']],
+      linhas));
+  }
 
   // ───────────── Preenche selects ─────────────
 
@@ -359,7 +521,9 @@
       if (!agendamentos.length) {
         container.innerHTML = '';
         container.append(el('div', { class: 'vazio' },
-          el('span', { style: 'font-size: 32px; display: block; margin-bottom: 8px;', text: '📅' }),
+          el('span', { class: 'vazio-icon', 'aria-hidden': 'true' },
+            el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-calendar' }))
+          ),
           el('div', { text: 'Nenhum agendamento para esta data' })));
         return;
       }
@@ -551,7 +715,7 @@
     const linhas = estado.produtos.map((p) => {
       const estoqueBaixo = p.quantidade <= p.qtd_minima && p.qtd_minima > 0;
       const statusClass = estoqueBaixo ? 'pill-pendente' : (p.ativo ? 'pill-ok' : 'pill-off');
-      const statusText = estoqueBaixo ? `⚠ Baixo (${p.quantidade}/${p.qtd_minima})` : (p.ativo ? 'Ativo' : 'Inativo');
+      const statusText = estoqueBaixo ? `! Baixo (${p.quantidade}/${p.qtd_minima})` : (p.ativo ? 'Ativo' : 'Inativo');
       return el('tr', {},
         el('td', {}, el('code', { text: p.sku })),
         el('td', {}, el('strong', { text: p.nome })),
@@ -569,7 +733,7 @@
           el('button', {
             class: 'btn btn-small btn-line', type: 'button', text: p.ativo ? 'Desativar' : 'Ativar',
             onclick: () => alternarProduto(p),
-          }))));
+          }))) });
     $('tabela-produtos').replaceChildren(tabela(
       [['SKU'], ['Produto'], ['Custo'], ['Preço'], ['Estoque'], ['Mín.'], ['Comissão'], ['Status'], ['', 'acoes']],
       linhas, 'Nenhum produto cadastrado. Comece criando o primeiro.'));
@@ -692,12 +856,12 @@
       const { caixa } = await api.get('/api/caixa/aberto');
       const statusEl = $('pdv-caixa-status');
       if (caixa) {
-        statusEl.textContent = `✅ Caixa aberto (inicial: ${brl(caixa.valor_inicial_centavos)})`;
-        statusEl.style.color = 'var(--cor-sucesso)';
+        statusEl.textContent = `Caixa aberto (inicial: ${brl(caixa.valor_inicial_centavos)})`;
+        statusEl.style.color = 'var(--ok)';
         $('pdv-finalizar').disabled = false;
       } else {
-        statusEl.textContent = '⚠ Nenhum caixa aberto — o administrador deve abrir o caixa primeiro';
-        statusEl.style.color = 'var(--cor-alerta)';
+        statusEl.textContent = '! Nenhum caixa aberto — o administrador deve abrir o caixa primeiro';
+        statusEl.style.color = 'var(--bad)';
         $('pdv-finalizar').disabled = true;
       }
     } catch (e) {
@@ -738,7 +902,7 @@
       return;
     }
     const linhas = pdvItens.map((item, idx) => el('tr', {},
-      el('td', { text: item.tipo === 'servico' ? '✂️ Serviço' : '📦 Produto' }),
+      el('td', { text: item.tipo === 'servico' ? 'Serviço' : 'Produto' }),
       el('td', { text: item.nome }),
       el('td', { text: brl(item.preco_unit) }),
       el('td', { text: String(item.quantidade) }),
@@ -880,7 +1044,9 @@
       if (!caixas.length) {
         container.innerHTML = '';
         container.append(el('div', { class: 'vazio' },
-          el('span', { style: 'font-size: 32px; display: block; margin-bottom: 8px;', text: '💰' }),
+          el('span', { class: 'vazio-icon', 'aria-hidden': 'true' },
+            el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-money' }))
+          ),
           el('div', { text: 'Nenhum caixa registrado' })));
         return;
       }
@@ -1054,7 +1220,9 @@
       if (!comissoes.length) {
         container.innerHTML = '';
         container.append(el('div', { class: 'vazio' },
-          el('span', { style: 'font-size: 32px; display: block; margin-bottom: 8px;', text: '💰' }),
+          el('span', { class: 'vazio-icon', 'aria-hidden': 'true' },
+            el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-money' }))
+          ),
           el('div', { text: 'Nenhuma comissão encontrada' })));
         return;
       }
@@ -1067,7 +1235,7 @@
           el('td', { text: horaVenda }),
           el('td', { text: c.barbeiro_nome }),
           el('td', { text: c.item_nome || `ID ${c.referencia_id}` }),
-          el('td', { text: c.item_tipo === 'servico' ? '✂️ Serviço' : '📦 Produto' }),
+          el('td', { text: c.item_tipo === 'servico' ? 'Serviço' : 'Produto' }),
           el('td', { text: brl(c.preco_unit_centavos) }),
           el('td', { text: String(c.quantidade) }),
           el('td', { text: brl(c.valor_centavos) }),

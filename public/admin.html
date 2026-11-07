@@ -8,11 +8,14 @@
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+<svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
+<body>
 <div class="shell">
   <aside class="side">
     <div class="brand">NAVALHA</div>
     <nav class="nav" aria-label="Seções">
-      <button class="nav-btn" id="nav-servicos" type="button" aria-current="page">Serviços</button>
+      <button class="nav-btn" id="nav-dashboard" type="button" aria-current="page">Dashboard</button>
+      <button class="nav-btn" id="nav-servicos" type="button">Serviços</button>
       <button class="nav-btn" id="nav-barbeiros" type="button">Barbeiros</button>
       <button class="nav-btn" id="nav-agenda" type="button">Agenda</button>
       <button class="nav-btn" id="nav-bloqueios" type="button">Bloqueios</button>
@@ -32,6 +35,33 @@
   </aside>
 
   <main class="main">
+    <section id="view-dashboard" aria-labelledby="titulo-dashboard">
+      <div class="main-head">
+        <h1 class="display" id="titulo-dashboard">Dashboard</h1>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpi-cards" role="region" aria-label="Indicadores principais"></div>
+
+      <!-- Gráficos -->
+      <div class="dashboard-charts">
+        <div class="chart-card">
+          <h2>Faturamento por Dia (30 dias)</h2>
+          <canvas id="chart-faturamento-dia" aria-label="Gráfico de barras do faturamento diário"></canvas>
+        </div>
+        <div class="chart-card">
+          <h2>Top Serviços por Faturamento</h2>
+          <canvas id="chart-faturamento-servico" aria-label="Gráfico de barras do faturamento por serviço"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabela Faturamento por Barbeiro -->
+      <div class="chart-card">
+        <h2>Faturamento por Barbeiro</h2>
+        <div class="tabela" id="tabela-faturamento-barbeiro"></div>
+      </div>
+    </section>
+
     <section id="view-servicos" aria-labelledby="titulo-servicos">
       <div class="main-head">
         <h1 class="display" id="titulo-servicos">Serviços</h1>

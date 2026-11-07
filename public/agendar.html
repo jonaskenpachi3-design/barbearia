@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agendar · Navalha</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
+<body>
+<div class="shell agendar-shell">
+  <main class="main agendar-main">
+    <header class="agendar-header">
+      <div class="brand">NAVALHA</div>
+      <h1>Agendar Horário</h1>
+      <p class="sub">Rápido, sem cadastro — só nome e telefone</p>
+    </header>
+
+    <!-- Passo 1: Dados do cliente -->
+    <section id="passo-dados" class="passo">
+      <form id="form-dados" class="form-agendar" novalidate>
+        <div class="field">
+          <label for="cli-nome" class="label">Seu nome</label>
+          <input class="input" id="cli-nome" type="text" required autocomplete="name" placeholder="João Silva">
+        </div>
+        <div class="field">
+          <label for="cli-telefone" class="label">Telefone (WhatsApp)</label>
+          <input class="input" id="cli-telefone" type="tel" required autocomplete="tel" placeholder="(11) 99999-9999" inputmode="tel">
+        </div>
+        <div class="erro" id="erro-dados" role="alert" hidden></div>
+        <button class="btn btn-primary btn-full" type="submit" id="btn-continuar">Continuar</button>
+      </form>
+    </section>
+
+    <!-- Passo 2: Serviço -->
+    <section id="passo-servico" class="passo" hidden>
+      <div class="passo-header">
+        <button class="btn-voltar" type="button" id="voltar-servico" aria-label="Voltar">←</button>
+        <h2>Escolha o serviço</h2>
+      </div>
+      <div class="servicos-grid" id="servicos-grid" role="list" aria-label="Serviços disponíveis"></div>
+      <div class="erro" id="erro-servico" role="alert" hidden></div>
+    </section>
+
+    <!-- Passo 3: Barbeiro -->
+    <section id="passo-barbeiro" class="passo" hidden>
+      <div class="passo-header">
+        <button class="btn-voltar" type="button" id="voltar-barbeiro" aria-label="Voltar">←</button>
+        <h2>Escolha o barbeiro</h2>
+      </div>
+      <div class="barbeiros-grid" id="barbeiros-grid" role="list" aria-label="Barbeiros disponíveis"></div>
+      <div class="erro" id="erro-barbeiro" role="alert" hidden></div>
+    </section>
+
+    <!-- Passo 4: Data e Horário -->
+    <section id="passo-horario" class="passo" hidden>
+      <div class="passo-header">
+        <button class="btn-voltar" type="button" id="voltar-horario" aria-label="Voltar">←</button>
+        <h2>Escolha data e horário</h2>
+      </div>
+      <div class="field">
+        <label for="ag-data" class="label">Data</label>
+        <input class="input" id="ag-data" type="date" required>
+      </div>
+      <div class="slots" id="slots-container" role="list" aria-label="Horários disponíveis">
+        <p class="vazio">Selecione uma data para ver horários</p>
+      </div>
+      <div class="erro" id="erro-horario" role="alert" hidden></div>
+    </section>
+
+    <!-- Passo 5: Confirmação -->
+    <section id="passo-confirmacao" class="passo" hidden>
+      <div class="confirmacao-card">
+        <div class="confirmacao-icon"><svg class="icon-scissors" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg></div>
+        <h2>Agendamento Confirmado!</h2>
+        <dl class="confirmacao-detalhes">
+          <div><dt>Serviço</dt><dd id="conf-servico"></dd></div>
+          <div><dt>Barbeiro</dt><dd id="conf-barbeiro"></dd></div>
+          <div><dt>Data</dt><dd id="conf-data"></dd></div>
+          <div><dt>Horário</dt><dd id="conf-horario"></dd></div>
+          <div><dt>Cliente</dt><dd id="conf-cliente"></dd></div>
+        </dl>
+        <div class="codigo-cancelamento">
+          <p class="codigo-label">Código para cancelar (guarde este número):</p>
+          <code class="codigo" id="conf-codigo"></code>
+          <p class="codigo-aviso">Informe este código se precisar cancelar (até 2h antes).</p>
+        </div>
+        <div class="confirmacao-acoes">
+          <button class="btn btn-primary" type="button" id="btn-novo-agendamento">Novo agendamento</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" hidden></div>
+  </main>
+</div>
+<script type="module" src="js/agendar.js"></script>
+</body>
+</html>
