@@ -105,7 +105,7 @@ test('serviços: só admin escreve; público vê só os ativos', async () => {
     nome: 'Cliente Serviço', email: 'cli.servico@email.com', senha: 'minhasenha1',
   })).cookie;
   const admin = await loginAdmin();
-  const novo = { nome: 'Corte', duracao_min: 40, preco_centavos: 4500 };
+  const novo = { nome: 'Corte', duracao_min: 40, preco_centavos: 4500, categoria: 'individual' };
 
   assert.equal((await chamar('POST', '/api/servicos', novo)).status, 401);
   assert.equal((await chamar('POST', '/api/servicos', novo, cliente)).status, 403);
@@ -114,7 +114,7 @@ test('serviços: só admin escreve; público vê só os ativos', async () => {
   assert.equal(criado.status, 201);
   assert.equal(criado.corpo.servico.ativo, true);
 
-  const barba = await chamar('POST', '/api/servicos', { nome: 'Barba', duracao_min: 30, preco_centavos: 3500 }, admin);
+  const barba = await chamar('POST', '/api/servicos', { nome: 'Barba', duracao_min: 30, preco_centavos: 3500, categoria: 'individual' }, admin);
   assert.equal((await chamar('POST', '/api/servicos', { ...novo, duracao_min: 0 }, admin)).status, 400);
   assert.equal((await chamar('POST', '/api/servicos', { ...novo, preco_centavos: 45.5 }, admin)).status, 400);
   assert.equal((await chamar('POST', '/api/servicos', { ...novo, nome: '' }, admin)).status, 400);
@@ -134,7 +134,7 @@ test('serviços: só admin escreve; público vê só os ativos', async () => {
 
 test('barbeiros: cadastro, jornada, visão pública e desativação', async () => {
   const admin = await loginAdmin();
-  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte + barba', duracao_min: 60, preco_centavos: 7000 }, admin)).corpo.servico;
+  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte + barba', duracao_min: 60, preco_centavos: 7000, categoria: 'individual' }, admin)).corpo.servico;
 
   const criado = await chamar('POST', '/api/barbeiros', {
     nome: 'Diego Santos', email: 'diego@barbearia.com', telefone: '68 98888-1111',
@@ -188,7 +188,7 @@ test('barbeiros: cadastro, jornada, visão pública e desativação', async () =
   assert.equal(login.corpo.usuario.papel, 'barbeiro');
   const meu = await chamar('GET', '/api/meu-barbeiro', undefined, login.cookie);
   assert.equal(meu.corpo.barbeiro.horarios.length, 3);
-  assert.equal((await chamar('POST', '/api/servicos', { nome: 'X', duracao_min: 10, preco_centavos: 1 }, login.cookie)).status, 403);
+  assert.equal((await chamar('POST', '/api/servicos', { nome: 'X', duracao_min: 10, preco_centavos: 1, categoria: 'individual' }, login.cookie)).status, 403);
   assert.equal((await chamar('PUT', `/api/barbeiros/${diego.id}`, { nome: 'Hack', comissao_pct: 100, servicos: [] }, login.cookie)).status, 403);
 
   // Desativar derruba a sessão, bloqueia o login e some da lista pública.
@@ -230,8 +230,8 @@ test('arquivos estáticos: serve a página inicial e não escapa da pasta public
 // Helper: cria cenário base com dados únicos usando sufixo baseado no nome do teste
 async function criarCenario(sufixo) {
   const admin = await loginAdmin();
-  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte' + sufixo, duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
-  const barba = (await chamar('POST', '/api/servicos', { nome: 'Barba' + sufixo, duracao_min: 20, preco_centavos: 3000 }, admin)).corpo.servico;
+  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte' + sufixo, duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
+  const barba = (await chamar('POST', '/api/servicos', { nome: 'Barba' + sufixo, duracao_min: 20, preco_centavos: 3000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João' + sufixo, email: 'joao' + sufixo + '@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [corte.id, barba.id],
   }, admin)).corpo.barbeiro;
@@ -324,7 +324,7 @@ test('agendamentos: impede horário fora da jornada', async () => {
 
 test('agendamentos: impede serviço que barbeiro não atende', async () => {
   const { admin, barbeiro, cliente } = await criarCenario('_ag4');
-  const outro = (await chamar('POST', '/api/servicos', { nome: 'Outro' + '_ag4', duracao_min: 30, preco_centavos: 1000 }, admin)).corpo.servico;
+  const outro = (await chamar('POST', '/api/servicos', { nome: 'Outro' + '_ag4', duracao_min: 30, preco_centavos: 1000, categoria: 'individual' }, admin)).corpo.servico;
   const data = proximaSegunda();
   const inicio = `${data}T10:00:00`;
 
@@ -475,8 +475,8 @@ test('bloqueios: bloqueio global (sem barbeiro) afeta todos', async () => {
 // Helper para Fase 3: cria cenário com caixa aberto
 async function criarCenarioFase3(sufixo) {
   const admin = await loginAdmin();
-  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte' + sufixo, duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
-  const barba = (await chamar('POST', '/api/servicos', { nome: 'Barba' + sufixo, duracao_min: 20, preco_centavos: 3000 }, admin)).corpo.servico;
+  const corte = (await chamar('POST', '/api/servicos', { nome: 'Corte' + sufixo, duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
+  const barba = (await chamar('POST', '/api/servicos', { nome: 'Barba' + sufixo, duracao_min: 20, preco_centavos: 3000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João' + sufixo, email: 'joao' + sufixo + '@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [corte.id, barba.id],
   }, admin)).corpo.barbeiro;
@@ -562,7 +562,7 @@ test('produtos: alerta de estoque baixo', async () => {
 
 test('servico comissao: define e remove regra específica', async () => {
   const admin = await loginAdmin();
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Especial', duracao_min: 45, preco_centavos: 6000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Especial', duracao_min: 45, preco_centavos: 6000, categoria: 'individual' }, admin)).corpo.servico;
 
   // Sem regra = usa comissão do barbeiro
   const semRegra = await chamar('GET', `/api/servicos/${servico.id}/comissao`, undefined, admin);
@@ -844,7 +844,7 @@ test('admin dashboard: retorna KPIs (ocupação, no-show, ticket médio, faturam
   const admin = await loginAdmin();
 
   // Cria um serviço e barbeiro
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Dashboard', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Dashboard', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Dashboard', email: 'joao.dashboard@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
   }, admin)).corpo.barbeiro;
@@ -903,8 +903,8 @@ test('admin relatorio-financeiro: retorna faturamento por serviço, período e b
   const admin = await loginAdmin();
 
   // Cria serviços e barbeiro
-  const servico1 = (await chamar('POST', '/api/servicos', { nome: 'Corte Rel', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
-  const servico2 = (await chamar('POST', '/api/servicos', { nome: 'Barba Rel', duracao_min: 20, preco_centavos: 3000 }, admin)).corpo.servico;
+  const servico1 = (await chamar('POST', '/api/servicos', { nome: 'Corte Rel', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
+  const servico2 = (await chamar('POST', '/api/servicos', { nome: 'Barba Rel', duracao_min: 20, preco_centavos: 3000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Rel', email: 'joao.rel@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico1.id, servico2.id],
   }, admin)).corpo.barbeiro;
@@ -965,7 +965,7 @@ test('admin relatorio-financeiro: nega acesso para não-admin', async () => {
 // ─── Agendamento Público (nome + telefone) ───
 test('agendamento publico: cliente agenda só com nome + telefone', async () => {
   const admin = await loginAdmin();
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Público', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Público', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Público', email: 'joao.publico@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
   }, admin)).corpo.barbeiro;
@@ -1030,7 +1030,7 @@ test('agendamento publico: valida dados obrigatórios', async () => {
 
 test('agendamento publico: impede horario fora da jornada', async () => {
   const admin = await loginAdmin();
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Teste', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Teste', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Teste', email: 'joao.teste@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
   }, admin)).corpo.barbeiro;
@@ -1051,7 +1051,7 @@ test('agendamento publico: impede horario fora da jornada', async () => {
 
 test('agendamento publico: impede conflito de horario', async () => {
   const admin = await loginAdmin();
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Conflito', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Conflito', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Conflito', email: 'joao.conflito@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
   }, admin)).corpo.barbeiro;
@@ -1078,7 +1078,7 @@ test('agendamento publico: impede conflito de horario', async () => {
 
 test('agendamento publico: cancelamento so ate 2h antes', async () => {
   const admin = await loginAdmin();
-  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Cancel', duracao_min: 30, preco_centavos: 4000 }, admin)).corpo.servico;
+  const servico = (await chamar('POST', '/api/servicos', { nome: 'Corte Cancel', duracao_min: 30, preco_centavos: 4000, categoria: 'individual' }, admin)).corpo.servico;
   const barbeiro = (await chamar('POST', '/api/barbeiros', {
     nome: 'João Cancel', email: 'joao.cancel@barbearia.com', senha: 'senha1234', comissao_pct: 40, servicos: [servico.id],
   }, admin)).corpo.barbeiro;

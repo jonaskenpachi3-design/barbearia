@@ -415,6 +415,19 @@ dialog::backdrop { background: rgba(20, 22, 26, .6); }
 }
 .servico-card strong, .barbeiro-card strong { display: block; font-size: 15px; margin-bottom: 4px; }
 .servico-meta { font-size: 13px; color: var(--muted); }
+.servico-categoria-header {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.servico-categoria-header:first-of-type { margin-top: 0; }
 .barbeiro-avatar {
   width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: #fff;
   display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px;
@@ -471,3 +484,74 @@ dialog::backdrop { background: rgba(20, 22, 26, .6); }
   .slot-btn { flex: 1 1 calc(33% - 6px); }
   .confirmacao-detalhes { grid-template-columns: 1fr; gap: 8px; }
 }
+
+/* ===== Planos & Assinaturas ===== */
+
+.plano-card {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 180px;
+}
+.plano-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.plano-header .price {
+  font-size: 22px;
+  color: var(--accent);
+}
+.plano-card .chips { margin-top: 8px; }
+.plano-card .acoes { width: 100%; margin-top: 16px; }
+.plano-card .acoes .btn { width: 100%; }
+
+.checkout-resumo {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.checkout-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.checkout-item:last-child { border-bottom: 0; }
+.checkout-item strong { font-size: 16px; }
+.checkout-item span { color: var(--accent); font-weight: 600; font-size: 16px; }
+
+.assinatura-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.assinatura-card .top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+.assinatura-card .detalhes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  font-size: 14px;
+  color: var(--muted);
+}
+.assinatura-card .acoes { width: 100%; margin-top: 4px; }
+.assinatura-card .acoes .btn { width: 100%; }
+
+/* Status pills for subscription */
+.pill-pendente { background: var(--warn-bg); color: var(--warn); }
+.pill-ativa { background: var(--ok-bg); color: var(--ok); }
+.pill-cancelada { background: #ece8de; color: var(--muted); }
+.pill-atrasada { background: var(--bad-bg); color: var(--bad); }
+.pill-expirada { background: #ece8de; color: var(--muted); }

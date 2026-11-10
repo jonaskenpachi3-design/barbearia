@@ -22,6 +22,7 @@
   <nav class="tabs" role="tablist" aria-label="Seções do cliente">
     <button class="tab" role="tab" id="tab-agendar" aria-selected="true" type="button">Agendar</button>
     <button class="tab" role="tab" id="tab-minha-agenda" aria-selected="false" type="button">Minha Agenda</button>
+    <button class="tab" role="tab" id="tab-planos" aria-selected="false" type="button">Planos</button>
     <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
     <button class="tab" role="tab" id="tab-barbeiros" aria-selected="false" type="button">Barbeiros</button>
   </nav>
@@ -59,11 +60,54 @@
     <div class="list" id="servicos" aria-live="polite"></div>
   </section>
 
+  <section class="tabpanel" id="panel-planos" role="tabpanel" aria-labelledby="tab-planos" hidden>
+    <h2 class="display section-title">Meus Planos</h2>
+    <div id="planos-disponiveis" class="list" aria-live="polite"></div>
+    <h2 class="display section-title" style="margin-top: 24px;" id="minha-assinatura-titulo" hidden>Minha Assinatura</h2>
+    <div id="minha-assinatura" class="list" hidden aria-live="polite"></div>
+    <div id="faturas-assinatura" class="list" hidden aria-live="polite"></div>
+  </section>
+
   <section class="tabpanel" id="panel-barbeiros" role="tabpanel" aria-labelledby="tab-barbeiros" hidden>
     <h2 class="display section-title">Barbeiros</h2>
     <div class="list" id="barbeiros" aria-live="polite"></div>
   </section>
 </main>
+
+<!-- Modal: Checkout do Plano -->
+<dialog id="dlg-plano-checkout" aria-labelledby="dlg-plano-titulo">
+  <form class="dlg" id="form-plano-checkout" novalidate>
+    <h2 class="display" id="dlg-plano-titulo">Assinar Plano</h2>
+    <div id="plano-checkout-resumo" class="checkout-resumo"></div>
+    <div class="field">
+      <label for="plano-metodo">Método de pagamento</label>
+      <select class="input" id="plano-metodo" required></select>
+    </div>
+    <div id="plano-novo-cartao" hidden>
+      <p class="small muted">Será redirecionado para o Mercado Pago para cadastrar o cartão com segurança.</p>
+      <button class="btn btn-line" type="button" id="plano-cadastrar-cartao">Cadastrar novo cartão</button>
+    </div>
+    <div class="erro" id="plano-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="plano-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="plano-confirmar">Confirmar assinatura</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Modal: Gerenciar Cartão (Mercado Pago iframe/redirect) -->
+<dialog id="dlg-cartao" aria-labelledby="dlg-cartao-titulo">
+  <div class="dlg">
+    <h2 class="display" id="dlg-cartao-titulo">Cadastrar Cartão</h2>
+    <p class="small muted">Complete o cadastro no Mercado Pago (abre em nova aba).</p>
+    <div style="margin: 16px 0;">
+      <button class="btn btn-primary" id="cartao-abrir-mp" type="button">Abrir Mercado Pago</button>
+      <button class="btn btn-line" id="cartao-fechar" type="button">Fechar</button>
+    </div>
+    <p class="small muted" id="cartao-status" hidden>Aguardando confirmação...</p>
+  </div>
+</dialog>
+
 <script src="js/app.js"></script>
 <script src="js/cliente.js"></script>
 </body>

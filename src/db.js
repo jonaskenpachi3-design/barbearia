@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS sessoes (
 CREATE TABLE IF NOT EXISTS servicos (
   id              INTEGER PRIMARY KEY,
   nome            TEXT    NOT NULL,
+  categoria       TEXT    NOT NULL DEFAULT 'individual' CHECK (categoria IN ('individual','combo','plano')),
   duracao_min     INTEGER NOT NULL CHECK (duracao_min > 0),
   preco_centavos  INTEGER NOT NULL CHECK (preco_centavos >= 0),
   ativo           INTEGER NOT NULL DEFAULT 1
@@ -200,6 +201,63 @@ CREATE TABLE IF NOT EXISTS clientes_simples (
   criado_em     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_clientes_simples_telefone ON clientes_simples (telefone);
+
+-- Fase 5: Planos de assinatura (assinatura mensal)
+CREATE TABLE IF NOT EXISTS planos (
+  id              INTEGER PRIMARY KEY,
+  nome            TEXT    NOT NULL,
+  descricao       TEXT,
+  preco_centavos  INTEGER NOT NULL CHECK (preco_centavos >= 0),
+  intervalo_dias  INTEGER NOT NULL DEFAULT 30 CHECK (intervalo_dias > 0),
+  beneficios      TEXT, -- JSON array: ["cortes_ilimitados", "barba_inclusa", "desconto_20_produtos"]
+  ativo           INTEGER NOT NULL DEFAULT 1
+);
+
+-- Fase 5: Assinaturas dos clientes
+CREATE TABLE IF NOT EXISTS assinaturas (
+  id                      INTEGER PRIMARY KEY,
+  cliente_id              INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  plano_id                INTEGER NOT NULL REFERENCES planos(id) ON DELETE RESTRICT,
+  gateway                 TEXT    NOT NULL DEFAULT 'mercadopago',
+  gateway_assinatura_id   TEXT,
+  status                  TEXT    NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','ativa','cancelada','atrasada','expirada')),
+  forma_pagamento         TEXT    CHECK (forma_pagamento IN ('cartao','pix','boleto')),
+  proxima_cobranca        TEXT,
+  cancelada_em            TEXT,
+  criado_em               TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_assinaturas_cliente ON assinaturas (cliente_id, status);
+CREATE INDEX IF NOT EXISTS idx_assinaturas_proxima ON assinaturas (proxima_cobranca);
+
+-- Fase 5: Métodos de pagamento (tokens do gateway)
+CREATE TABLE IF NOT EXISTS metodos_pagamento (
+  id                INTEGER PRIMARY KEY,
+  cliente_id        INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  gateway           TEXT    NOT NULL,
+  gateway_token     TEXT    NOT NULL,
+  tipo              TEXT    NOT NULL CHECK (tipo IN ('cartao','pix')),
+  marca             TEXT,
+  ultimos4          TEXT,
+  expiracao         TEXT, -- MM/AA
+  padrao            INTEGER NOT NULL DEFAULT 0,
+  criado_em         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_metodos_cliente ON metodos_pagamento (cliente_id);
+
+-- Fase 5: Faturas/histórico de cobranças
+CREATE TABLE IF NOT EXISTS faturas (
+  id                    INTEGER PRIMARY KEY,
+  assinatura_id         INTEGER NOT NULL REFERENCES assinaturas(id) ON DELETE CASCADE,
+  gateway_fatura_id     TEXT,
+  valor_centavos        INTEGER NOT NULL CHECK (valor_centavos > 0),
+  status                TEXT    NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','paga','falhou','estornada','cancelada')),
+  vencimento            TEXT    NOT NULL,
+  paga_em               TEXT,
+  metodo_pagamento_id   INTEGER REFERENCES metodos_pagamento(id),
+  criado_em             TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_faturas_assinatura ON faturas (assinatura_id, status);
+CREATE INDEX IF NOT EXISTS idx_faturas_vencimento ON faturas (vencimento);
 `;
 
 function abrirBanco(arquivo) {
@@ -215,6 +273,31 @@ function abrirBanco(arquivo) {
   if (!temCodigo) {
     db.exec("ALTER TABLE agendamentos ADD COLUMN codigo_cancelamento TEXT");
     db.exec("CREATE INDEX IF NOT EXISTS idx_agend_codigo ON agendamentos (codigo_cancelamento)");
+  }
+
+  // Migração: adiciona categoria em servicos se não existir
+  const colsServicos = db.prepare("PRAGMA table_info(servicos)").all();
+  const temCategoria = colsServicos.some(c => c.name === 'categoria');
+  if (!temCategoria) {
+    db.exec("ALTER TABLE servicos ADD COLUMN categoria TEXT NOT NULL DEFAULT 'individual' CHECK (categoria IN ('individual','combo','plano'))");
+  }
+
+  // Migração: cria planos padrão se não existirem
+  const planosCount = db.prepare("SELECT COUNT(*) as c FROM planos").get().c;
+  if (planosCount === 0) {
+    db.exec(`
+      INSERT INTO planos (nome, descricao, preco_centavos, intervalo_dias, beneficios, ativo) VALUES
+      -- Planos de Cabelo (Apenas Cabelo)
+      ('Combo Plus', 'Corte Degradê — 4 serviços/mês', 12000, 30, '["4_cortes_mes","cabelo_apenas","degrade"]', 1),
+      ('Combo Premium', 'Corte Navalhado — 4 serviços/mês', 14000, 30, '["4_cortes_mes","cabelo_apenas","navalhado"]', 1),
+      ('Combo Basic', 'Corte Social — 3 serviços/mês', 7000, 30, '["3_cortes_mes","cabelo_apenas","social"]', 1),
+      -- Planos Completos (Cabelo + Barba)
+      ('Combo Mid', 'Degradê + Barba — 4 serviços/mês', 18000, 30, '["4_servicos_mes","cabelo_barba","degrade","barba_inclusa"]', 1),
+      ('Combo Pro', 'Navalhado + Barba — 4 serviços/mês', 20000, 30, '["4_servicos_mes","cabelo_barba","navalhado","barba_inclusa"]', 1),
+      ('Combo Mesc.', 'Navalhado + Barba Mesclada — 4 serviços/mês', 16000, 30, '["4_servicos_mes","cabelo_barba","navalhado","barba_mesclada"]', 1),
+      ('Combo Mesc. Jr.', 'Degradê + Barba Mesclada — 4 serviços/mês', 15000, 30, '["4_servicos_mes","cabelo_barba","degrade","barba_mesclada"]', 1),
+      ('Combo Basic Mesc.', 'Social + Barba — 3 serviços/mês', 10500, 30, '["3_servicos_mes","cabelo_barba","social","barba_inclusa"]', 1);
+    `);
   }
 
   return db;

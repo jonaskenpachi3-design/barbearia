@@ -12,7 +12,7 @@ const ehDuplicado = (erro) => /UNIQUE constraint failed/i.test(String(erro && er
 const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, telefone: u.telefone, papel: u.papel });
 
 function servicoParaJson(s) {
-  return { id: s.id, nome: s.nome, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, ativo: !!s.ativo };
+  return { id: s.id, nome: s.nome, categoria: s.categoria, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, ativo: !!s.ativo };
 }
 
 // Carrega barbeiros com serviços e horários. `admin` inclui e-mail, telefone e comissão.
@@ -244,20 +244,22 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
 
   r.get('/api/servicos', (ctx) => {
     const admin = ctx.usuario && ctx.usuario.papel === 'admin';
+    const orderBy = admin ? 'categoria, nome COLLATE NOCASE' : "categoria, preco_centavos DESC";
     const linhas = db.prepare(
-      `SELECT * FROM servicos ${admin ? '' : 'WHERE ativo = 1'} ORDER BY nome COLLATE NOCASE`
+      `SELECT * FROM servicos ${admin ? '' : 'WHERE ativo = 1'} ORDER BY ${orderBy}`
     ).all();
     return { servicos: linhas.map(servicoParaJson) };
   });
 
   r.post('/api/servicos', soAdmin, (ctx) => {
     const nome = v.texto(ctx.body.nome, 'o nome do serviço', { max: 60 });
+    const categoria = v.texto(ctx.body.categoria, 'a categoria', { max: 20 }, 'individual');
     const duracao = v.inteiro(ctx.body.duracao_min, 'A duração', { min: 5, max: 480 });
     const preco = v.inteiro(ctx.body.preco_centavos, 'O preço', { min: 0, max: 10_000_000 });
     const ativo = v.booleano(ctx.body.ativo, 'ativo', true);
     const id = db.prepare(
-      'INSERT INTO servicos (nome, duracao_min, preco_centavos, ativo) VALUES (?, ?, ?, ?)'
-    ).run(nome, duracao, preco, ativo ? 1 : 0).lastInsertRowid;
+      'INSERT INTO servicos (nome, categoria, duracao_min, preco_centavos, ativo) VALUES (?, ?, ?, ?, ?)'
+    ).run(nome, categoria, duracao, preco, ativo ? 1 : 0).lastInsertRowid;
     ctx.status = 201;
     return { servico: servicoParaJson(db.prepare('SELECT * FROM servicos WHERE id = ?').get(id)) };
   });
@@ -267,11 +269,14 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     const atual = db.prepare('SELECT * FROM servicos WHERE id = ?').get(id);
     if (!atual) throw new ErroHttp(404, 'Serviço não encontrado.');
     const nome = v.texto(ctx.body.nome, 'o nome do serviço', { max: 60 });
+    const categoria = ctx.body.categoria !== undefined
+      ? v.texto(ctx.body.categoria, 'a categoria', { max: 20 })
+      : atual.categoria;
     const duracao = v.inteiro(ctx.body.duracao_min, 'A duração', { min: 5, max: 480 });
     const preco = v.inteiro(ctx.body.preco_centavos, 'O preço', { min: 0, max: 10_000_000 });
     const ativo = v.booleano(ctx.body.ativo, 'ativo', !!atual.ativo);
-    db.prepare('UPDATE servicos SET nome = ?, duracao_min = ?, preco_centavos = ?, ativo = ? WHERE id = ?')
-      .run(nome, duracao, preco, ativo ? 1 : 0, id);
+    db.prepare('UPDATE servicos SET nome = ?, categoria = ?, duracao_min = ?, preco_centavos = ?, ativo = ? WHERE id = ?')
+      .run(nome, categoria, duracao, preco, ativo ? 1 : 0, id);
     return { servico: servicoParaJson(db.prepare('SELECT * FROM servicos WHERE id = ?').get(id)) };
   });
 
@@ -1721,6 +1726,330 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       faturamento_por_barbeiro: faturamentoPorBarbeiroArray,
       comissoes
     };
+  });
+
+  // ───────────────────────── Planos & Assinaturas ─────────────────────────
+
+  const { getPagamentoGateway } = require('./pagamento');
+  const gateway = getPagamentoGateway();
+
+  function planoParaJson(p) {
+    return {
+      id: p.id,
+      nome: p.nome,
+      descricao: p.descricao,
+      preco_centavos: p.preco_centavos,
+      intervalo_dias: p.intervalo_dias,
+      beneficios: p.beneficios ? JSON.parse(p.beneficios) : [],
+      ativo: !!p.ativo,
+    };
+  }
+
+  function assinaturaParaJson(a) {
+    return {
+      id: a.id,
+      plano_id: a.plano_id,
+      gateway: a.gateway,
+      gateway_assinatura_id: a.gateway_assinatura_id,
+      status: a.status,
+      forma_pagamento: a.forma_pagamento,
+      proxima_cobranca: a.proxima_cobranca,
+      cancelada_em: a.cancelada_em,
+      criado_em: a.criado_em,
+    };
+  }
+
+  function metodoPagamentoParaJson(m) {
+    return {
+      id: m.id,
+      gateway: m.gateway,
+      tipo: m.tipo,
+      marca: m.marca,
+      ultimos4: m.ultimos4,
+      expiracao: m.expiracao,
+      padrao: !!m.padrao,
+      criado_em: m.criado_em,
+    };
+  }
+
+  function faturaParaJson(f) {
+    return {
+      id: f.id,
+      assinatura_id: f.assinatura_id,
+      gateway_fatura_id: f.gateway_fatura_id,
+      valor_centavos: f.valor_centavos,
+      status: f.status,
+      vencimento: f.vencimento,
+      paga_em: f.paga_em,
+      metodo_pagamento_id: f.metodo_pagamento_id,
+      criado_em: f.criado_em,
+    };
+  }
+
+  // GET /api/planos - lista planos ativos (público)
+  r.get('/api/planos', (ctx) => {
+    const planos = db.prepare('SELECT * FROM planos WHERE ativo = 1 ORDER BY preco_centavos ASC').all();
+    return { planos: planos.map(planoParaJson) };
+  });
+
+  // POST /api/planos - cria plano (admin)
+  r.post('/api/planos', soAdmin, (ctx) => {
+    const nome = v.texto(ctx.body.nome, 'o nome do plano', { max: 60 });
+    const descricao = v.texto(ctx.body.descricao, 'a descrição', { max: 500, opcional: true });
+    const preco = v.inteiro(ctx.body.preco_centavos, 'o preço', { min: 0, max: 10_000_000 });
+    const intervalo = v.inteiro(ctx.body.intervalo_dias, 'o intervalo em dias', { min: 1, max: 365 }, 30);
+    const beneficios = ctx.body.beneficios ? JSON.stringify(ctx.body.beneficios) : null;
+    const ativo = v.booleano(ctx.body.ativo, 'ativo', true);
+    const id = db.prepare(
+      'INSERT INTO planos (nome, descricao, preco_centavos, intervalo_dias, beneficios, ativo) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(nome, descricao, preco, intervalo, beneficios, ativo ? 1 : 0).lastInsertRowid;
+    ctx.status = 201;
+    return { plano: planoParaJson(db.prepare('SELECT * FROM planos WHERE id = ?').get(id)) };
+  });
+
+  // PUT /api/planos/:id - atualiza plano (admin)
+  r.put('/api/planos/:id', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const atual = db.prepare('SELECT * FROM planos WHERE id = ?').get(id);
+    if (!atual) throw new ErroHttp(404, 'Plano não encontrado.');
+    const nome = v.texto(ctx.body.nome, 'o nome do plano', { max: 60 });
+    const descricao = v.texto(ctx.body.descricao, 'a descrição', { max: 500, opcional: true });
+    const preco = v.inteiro(ctx.body.preco_centavos, 'o preço', { min: 0, max: 10_000_000 });
+    const intervalo = v.inteiro(ctx.body.intervalo_dias, 'o intervalo em dias', { min: 1, max: 365 });
+    const beneficios = ctx.body.beneficios !== undefined ? JSON.stringify(ctx.body.beneficios) : atual.beneficios;
+    const ativo = v.booleano(ctx.body.ativo, 'ativo', !!atual.ativo);
+    db.prepare(
+      'UPDATE planos SET nome = ?, descricao = ?, preco_centavos = ?, intervalo_dias = ?, beneficios = ?, ativo = ? WHERE id = ?'
+    ).run(nome, descricao, preco, intervalo, beneficios, ativo ? 1 : 0, id);
+    return { plano: planoParaJson(db.prepare('SELECT * FROM planos WHERE id = ?').get(id)) };
+  });
+
+  // DELETE /api/planos/:id - desativa plano (admin)
+  r.delete('/api/planos/:id', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    db.prepare('UPDATE planos SET ativo = 0 WHERE id = ?').run(id);
+    return { ok: true };
+  });
+
+  // GET /api/minha-assinatura - assinatura ativa do cliente logado
+  r.get('/api/minha-assinatura', auth.exigirLogin, (ctx) => {
+    const assinatura = db.prepare(
+      `SELECT a.*, p.nome as plano_nome, p.preco_centavos as plano_preco, p.beneficios as plano_beneficios
+       FROM assinaturas a
+       JOIN planos p ON p.id = a.plano_id
+       WHERE a.cliente_id = ? AND a.status IN ('pendente','ativa','atrasada')
+       ORDER BY a.criado_em DESC LIMIT 1`
+    ).get(ctx.usuario.id);
+    if (!assinatura) return { assinatura: null };
+    return {
+      assinatura: {
+        ...assinaturaParaJson(assinatura),
+        plano: {
+          id: assinatura.plano_id,
+          nome: assinatura.plano_nome,
+          preco_centavos: assinatura.plano_preco,
+          beneficios: assinatura.plano_beneficios ? JSON.parse(assinatura.plano_beneficios) : [],
+        },
+      },
+    };
+  });
+
+  // GET /api/assinaturas - lista assinaturas (admin)
+  r.get('/api/assinaturas', soAdmin, (ctx) => {
+    const assinaturas = db.prepare(
+      `SELECT a.*, u.nome as cliente_nome, u.email as cliente_email, p.nome as plano_nome
+       FROM assinaturas a
+       JOIN usuarios u ON u.id = a.cliente_id
+       JOIN planos p ON p.id = a.plano_id
+       ORDER BY a.criado_em DESC`
+    ).all();
+    return { assinaturas: assinaturas.map(a => ({
+      ...assinaturaParaJson(a),
+      cliente_nome: a.cliente_nome,
+      cliente_email: a.cliente_email,
+      plano_nome: a.plano_nome,
+    })) };
+  });
+
+  // POST /api/assinaturas - criar assinatura (cliente logado)
+  r.post('/api/assinaturas', auth.exigirLogin, async (ctx) => {
+    const planoId = v.inteiro(ctx.body.plano_id, 'o plano', { min: 1 });
+    const metodoId = v.inteiro(ctx.body.metodo_pagamento_id, 'o método de pagamento', { min: 1 });
+    const formaPagamento = v.texto(ctx.body.forma_pagamento, 'a forma de pagamento', { max: 10 }, 'cartao');
+
+    const plano = db.prepare('SELECT * FROM planos WHERE id = ? AND ativo = 1').get(planoId);
+    if (!plano) throw new ErroHttp(404, 'Plano não encontrado ou inativo.');
+
+    const metodo = db.prepare('SELECT * FROM metodos_pagamento WHERE id = ? AND cliente_id = ?').get(metodoId, ctx.usuario.id);
+    if (!metodo) throw new ErroHttp(404, 'Método de pagamento não encontrado.');
+
+    // Verifica se já tem assinatura ativa
+    const existente = db.prepare(
+      "SELECT id FROM assinaturas WHERE cliente_id = ? AND status IN ('pendente','ativa','atrasada')"
+    ).get(ctx.usuario.id);
+    if (existente) throw new ErroHttp(409, 'Você já possui uma assinatura ativa.');
+
+    // Cria cliente no gateway se não existir
+    const gateway = getPagamentoGateway();
+    let clienteGatewayId = ctx.usuario.gateway_id; // TODO: adicionar coluna gateway_id em usuarios
+    if (!clienteGatewayId) {
+      const clienteGateway = await gateway.criarCliente({
+        nome: ctx.usuario.nome,
+        email: ctx.usuario.email,
+        telefone: ctx.usuario.telefone,
+      });
+      clienteGatewayId = clienteGateway.id;
+      // TODO: salvar gateway_id no usuario
+    }
+
+    // Cria assinatura no gateway
+    const assinaturaGateway = await gateway.criarAssinatura({
+      clienteGatewayId,
+      planoNome: plano.nome,
+      precoCentavos: plano.preco_centavos,
+      intervaloDias: plano.intervalo_dias,
+      cartaoId: metodo.gateway_token,
+      formaPagamento,
+    });
+
+    const proximaCobranca = assinaturaGateway.proxima_cobranca || new Date(Date.now() + plano.intervalo_dias * 24 * 60 * 60 * 1000).toISOString();
+
+    const id = transacao(db, () => {
+      const assinaturaId = db.prepare(
+        `INSERT INTO assinaturas (cliente_id, plano_id, gateway, gateway_assinatura_id, status, forma_pagamento, proxima_cobranca)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(ctx.usuario.id, planoId, gateway.gateway, assinaturaGateway.id, 'ativa', formaPagamento, proximaCobranca).lastInsertRowid;
+
+      // Cria primeira fatura
+      db.prepare(
+        `INSERT INTO faturas (assinatura_id, gateway_fatura_id, valor_centavos, status, vencimento)
+         VALUES (?, ?, ?, 'pendente', ?)`
+      ).run(assinaturaId, assinaturaGateway.id, plano.preco_centavos, proximaCobranca);
+
+      return assinaturaId;
+    });
+
+    const nova = db.prepare(
+      `SELECT a.*, p.nome as plano_nome, p.preco_centavos as plano_preco, p.beneficios as plano_beneficios
+       FROM assinaturas a JOIN planos p ON p.id = a.plano_id WHERE a.id = ?`
+    ).get(id);
+
+    return { assinatura: { ...assinaturaParaJson(nova), plano: { id: nova.plano_id, nome: nova.plano_nome, preco_centavos: nova.plano_preco, beneficios: nova.plano_beneficios ? JSON.parse(nova.plano_beneficios) : [] } } };
+  });
+
+  // PUT /api/assinaturas/:id/cancelar - cancelar assinatura (cliente dono ou admin)
+  r.put('/api/assinaturas/:id/cancelar', auth.exigirLogin, async (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(id);
+    if (!assinatura) throw new ErroHttp(404, 'Assinatura não encontrada.');
+
+    // Só o dono ou admin pode cancelar
+    if (assinatura.cliente_id !== ctx.usuario.id && ctx.usuario.papel !== 'admin') {
+      throw new ErroHttp(403, 'Não autorizado.');
+    }
+
+    if (assinatura.status === 'cancelada') throw new ErroHttp(400, 'Assinatura já cancelada.');
+
+    const gateway = getPagamentoGateway();
+    if (assinatura.gateway_assinatura_id) {
+      await gateway.cancelarAssinatura(assinatura.gateway_assinatura_id);
+    }
+
+    db.prepare("UPDATE assinaturas SET status = 'cancelada', cancelada_em = datetime('now') WHERE id = ?").run(id);
+    // Cancela faturas pendentes
+    db.prepare("UPDATE faturas SET status = 'cancelada' WHERE assinatura_id = ? AND status = 'pendente'").run(id);
+
+    return { ok: true, message: 'Assinatura cancelada.' };
+  });
+
+  // POST /api/metodos-pagamento - salva token do cartão (cliente logado)
+  r.post('/api/metodos-pagamento', auth.exigirLogin, async (ctx) => {
+    const gatewayToken = v.texto(ctx.body.gateway_token, 'o token do gateway', { min: 10 });
+    const tipo = v.texto(ctx.body.tipo, 'o tipo', { max: 10 }, 'cartao');
+    const marca = v.texto(ctx.body.marca, 'a marca', { max: 20, opcional: true });
+    const ultimos4 = v.texto(ctx.body.ultimos4, 'os últimos 4 dígitos', { max: 4, opcional: true });
+    const expiracao = v.texto(ctx.body.expiracao, 'a expiração MM/AA', { max: 5, opcional: true });
+    const padrao = v.booleano(ctx.body.padrao, 'padrão', false);
+
+    const gateway = getPagamentoGateway();
+
+    // Se for padrão, remove padrão anterior
+    if (padrao) {
+      db.prepare('UPDATE metodos_pagamento SET padrao = 0 WHERE cliente_id = ?').run(ctx.usuario.id);
+    }
+
+    const id = db.prepare(
+      `INSERT INTO metodos_pagamento (cliente_id, gateway, gateway_token, tipo, marca, ultimos4, expiracao, padrao)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(ctx.usuario.id, gateway.gateway, gatewayToken, tipo, marca, ultimos4, expiracao, padrao ? 1 : 0).lastInsertRowid;
+
+    return { metodo: metodoPagamentoParaJson(db.prepare('SELECT * FROM metodos_pagamento WHERE id = ?').get(id)) };
+  });
+
+  // GET /api/metodos-pagamento - lista métodos do cliente
+  r.get('/api/metodos-pagamento', auth.exigirLogin, (ctx) => {
+    const metodos = db.prepare('SELECT * FROM metodos_pagamento WHERE cliente_id = ? ORDER BY padrao DESC, criado_em DESC').all(ctx.usuario.id);
+    return { metodos: metodos.map(metodoPagamentoParaJson) };
+  });
+
+  // DELETE /api/metodos-pagamento/:id - remove método
+  r.delete('/api/metodos-pagamento/:id', auth.exigirLogin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    db.prepare('DELETE FROM metodos_pagamento WHERE id = ? AND cliente_id = ?').run(id, ctx.usuario.id);
+    return { ok: true };
+  });
+
+  // POST /api/webhook/mercadopago - webhook do Mercado Pago
+  r.post('/api/webhook/mercadopago', async (ctx) => {
+    const signature = ctx.req.headers['x-signature'] || ctx.req.headers['x-mp-signature'];
+    const payload = ctx.body;
+
+    try {
+      const evento = await gateway.processarWebhook(payload, signature);
+
+      switch (evento.tipo) {
+        case 'pagamento_aprovado': {
+          const fatura = db.prepare('SELECT * FROM faturas WHERE gateway_fatura_id = ?').get(evento.dados.fatura_id);
+          if (fatura) {
+            db.prepare("UPDATE faturas SET status = 'paga', paga_em = datetime('now') WHERE id = ?").run(fatura.id);
+            // Atualiza próxima cobrança da assinatura
+            const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(fatura.assinatura_id);
+            if (assinatura && assinatura.status === 'ativa') {
+              const plano = db.prepare('SELECT intervalo_dias FROM planos WHERE id = ?').get(assinatura.plano_id);
+              const proxima = new Date(new Date(fatura.vencimento).getTime() + plano.intervalo_dias * 24 * 60 * 60 * 1000).toISOString();
+              db.prepare("UPDATE assinaturas SET proxima_cobranca = ? WHERE id = ?").run(proxima, assinatura.id);
+              // Cria próxima fatura
+              db.prepare(
+                `INSERT INTO faturas (assinatura_id, gateway_fatura_id, valor_centavos, status, vencimento)
+                 VALUES (?, ?, ?, 'pendente', ?)`
+              ).run(assinatura.id, `next_${Date.now()}`, fatura.valor_centavos, proxima);
+            }
+          }
+          break;
+        }
+        case 'pagamento_recusado': {
+          const fatura = db.prepare('SELECT * FROM faturas WHERE gateway_fatura_id = ?').get(evento.dados.fatura_id);
+          if (fatura) {
+            db.prepare("UPDATE faturas SET status = 'falhou' WHERE id = ?").run(fatura.id);
+            db.prepare("UPDATE assinaturas SET status = 'atrasada' WHERE id = ?").run(fatura.assinatura_id);
+          }
+          break;
+        }
+        case 'assinatura_cancelada': {
+          const assinatura = db.prepare('SELECT * FROM assinaturas WHERE gateway_assinatura_id = ?').get(evento.dados.assinatura_id);
+          if (assinatura) {
+            db.prepare("UPDATE assinaturas SET status = 'cancelada', cancelada_em = datetime('now') WHERE id = ?").run(assinatura.id);
+            db.prepare("UPDATE faturas SET status = 'cancelada' WHERE assinatura_id = ? AND status = 'pendente'").run(assinatura.id);
+          }
+          break;
+        }
+      }
+
+      return { received: true };
+    } catch (erro) {
+      console.error('Webhook erro:', erro);
+      throw new ErroHttp(400, 'Webhook inválido');
+    }
   });
 
   return r;

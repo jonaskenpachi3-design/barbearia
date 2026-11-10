@@ -94,17 +94,41 @@ async function carregarIniciais() {
 function renderizarServicos() {
   const container = $('servicos-grid');
   container.innerHTML = '';
+
+  // Agrupa por categoria (a API já ordena por categoria, preco_centavos DESC)
+  const porCategoria = {};
   estado.servicos.forEach(s => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'servico-card';
-    btn.setAttribute('role', 'listitem');
-    btn.innerHTML = `
-      <strong>${s.nome}</strong>
-      <span class="servico-meta">${s.duracao_min} min · R$ ${(s.preco_centavos / 100).toFixed(2).replace('.', ',')}</span>
-    `;
-    btn.addEventListener('click', () => selecionarServico(s));
-    container.appendChild(btn);
+    const cat = s.categoria || 'individual';
+    if (!porCategoria[cat]) porCategoria[cat] = [];
+    porCategoria[cat].push(s);
+  });
+
+  const ordemCategorias = ['individual', 'combo', 'plano'];
+  const labels = { individual: 'Serviços Individuais', combo: 'Conjuntos / Combos', plano: 'Planos' };
+
+  ordemCategorias.forEach(cat => {
+    const servicos = porCategoria[cat];
+    if (!servicos || !servicos.length) return;
+
+    // Cabeçalho da categoria
+    const header = document.createElement('div');
+    header.className = 'servico-categoria-header';
+    header.textContent = labels[cat] || cat;
+    container.appendChild(header);
+
+    // Serviços da categoria (já ordenados por preço desc pela API)
+    servicos.forEach(s => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'servico-card';
+      btn.setAttribute('role', 'listitem');
+      btn.innerHTML = `
+        <strong>${s.nome}</strong>
+        <span class="servico-meta">${s.duracao_min} min · R$ ${(s.preco_centavos / 100).toFixed(2).replace('.', ',')}</span>
+      `;
+      btn.addEventListener('click', () => selecionarServico(s));
+      container.appendChild(btn);
+    });
   });
 }
 

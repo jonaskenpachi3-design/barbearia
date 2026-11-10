@@ -1,6 +1,6 @@
 'use strict';
 (async function () {
-  const { api, el, brl, iniciais, exigir, sair, toast, DIAS, turnosPorDia } = window.App;
+  const { api, el, brl, iniciais, exigir, sair, toast } = window.App;
   const $ = (id) => document.getElementById(id);
 
   $('sair').addEventListener('click', sair);
@@ -10,20 +10,18 @@
     $('avatar').textContent = iniciais(usuario.nome);
     const primeiroNome = usuario.nome.split(' ')[0];
 
-    // Tabs
-    const tabs = ['agendar', 'minha-agenda', 'servicos', 'barbeiros'];
+    // ─── Tabs ───
+    const tabs = ['agendar', 'minha-agenda', 'planos', 'servicos', 'barbeiros'];
     const tabBtns = tabs.map(t => $(`tab-${t}`));
     const tabPanels = tabs.map(t => $(`panel-${t}`));
     function mostrarTab(idx) {
-      tabBtns.forEach((b, i) => {
-        b.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-      });
+      tabBtns.forEach((b, i) => b.setAttribute('aria-selected', i === idx ? 'true' : 'false'));
       tabPanels.forEach((p, i) => p.hidden = i !== idx);
     }
     tabBtns.forEach((b, i) => b.addEventListener('click', () => mostrarTab(i)));
     mostrarTab(0);
 
-    // Carrega serviços e barbeiros
+    // ─── Carrega serviços e barbeiros ───
     const [{ servicos }, { barbeiros }] = await Promise.all([
       api.get('/api/servicos'),
       api.get('/api/barbeiros'),
@@ -46,10 +44,9 @@
     $('ag-data').min = new Date().toISOString().split('T')[0];
     $('ag-data').value = $('ag-data').min;
 
-    // Estado do agendamento
+    // ─── Agendamento ───
     let horarioSelecionado = null;
 
-    // Carrega horários livres quando muda data/serviço/barbeiro
     async function carregarHorarios() {
       const data = $('ag-data').value;
       const servicoId = Number($('ag-servico').value);
@@ -67,7 +64,7 @@
       }
 
       try {
-        const { slots, servico } = await api.get(`/api/horarios-livres?barbeiro=${barbeiroId}&data=${data}&servico=${servicoId}`);
+        const { slots } = await api.get(`/api/horarios-livres?barbeiro=${barbeiroId}&data=${data}&servico=${servicoId}`);
         if (!slots.length) {
           container.innerHTML = '<span class="muted small">Nenhum horário livre para esta data.</span>';
           return;
@@ -100,7 +97,6 @@
     $('ag-servico').addEventListener('change', carregarHorarios);
     $('ag-barbeiro').addEventListener('change', carregarHorarios);
 
-    // Cria agendamento
     async function criarAgendamento() {
       const data = $('ag-data').value;
       const servicoId = Number($('ag-servico').value);
@@ -117,7 +113,6 @@
       try {
         await api.post('/api/agendamentos', { barbeiro_id: barbeiroId, servico_id: servicoId, inicio });
         toast('Agendamento criado com sucesso!');
-        // Limpa seleção e recarrega
         horarioSelecionado = null;
         document.querySelectorAll('#ag-horarios .slot-btn').forEach(b => b.classList.remove('selecionado'));
         carregarHorarios();
@@ -128,13 +123,10 @@
       }
     }
 
-    // Confirma criação no Enter no último campo ou botão
     $('ag-barbeiro').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && horarioSelecionado) criarAgendamento();
     });
 
-    // Botão implícito: clicar no horário já agenda (ou podemos adicionar botão)
-    // Vamos adicionar um botão de confirmação visível
     const containerHorarios = $('ag-horarios');
     const btnConfirmar = el('button', { class: 'btn btn-primary', style: 'margin-top: 12px; width: 100%;', text: 'Confirmar agendamento', onclick: criarAgendamento });
     containerHorarios.parentNode.insertBefore(btnConfirmar, containerHorarios.nextSibling);
@@ -200,13 +192,13 @@
         await api.put(`/api/agendamentos/${id}/cancelar`);
         toast('Agendamento cancelado.');
         carregarMinhaAgenda();
-        carregarHorarios(); // libera o slot
+        carregarHorarios();
       } catch (e) {
         toast(e.message, true);
       }
     }
 
-    // ─── Serviços (lista simples) ───
+    // ─── Serviços ───
     $('servicos').replaceChildren(
       ...(servicos.length
         ? servicos.map((s) => el('div', { class: 'item' },
@@ -231,9 +223,271 @@
         : [el('p', { class: 'muted', text: 'Nenhum barbeiro disponível ainda.' })])
     );
 
-    // Carrega agenda inicial
+    // ─── PLANOS E ASSINATURAS ───
+    let planoSelecionado = null;
+    let metodoSelecionado = null;
+
+    async function carregarPlanos() {
+      try {
+        const [{ planos }, { assinatura }, { metodos }] = await Promise.all([
+          api.get('/api/planos'),
+          api.get('/api/minha-assinatura'),
+          api.get('/api/metodos-pagamento'),
+        ]);
+
+        renderPlanosDisponiveis(planos);
+        renderMinhaAssinatura(assinatura);
+        renderMetodosPagamento(metodos);
+
+        // Se já tem assinatura, esconde planos disponíveis
+        if (assinatura?.assinatura) {
+          $('planos-disponiveis').innerHTML = '';
+          $('planos-disponiveis').append(el('p', { class: 'muted small', text: 'Você já possui uma assinatura ativa.' }));
+        }
+      } catch (e) {
+        toast(e.message, true);
+      }
+    }
+
+    function renderPlanosDisponiveis(planos) {
+      const container = $('planos-disponiveis');
+      container.innerHTML = '';
+      if (!planos.length) {
+        container.append(el('p', { class: 'muted', text: 'Nenhum plano disponível no momento.' }));
+        return;
+      }
+      for (const p of planos) {
+        const beneficios = Array.isArray(p.beneficios) ? p.beneficios : [];
+        const card = el('div', { class: 'item plano-card' },
+          el('div', {},
+            el('div', { class: 'plano-header' },
+              el('strong', { text: p.nome }),
+              el('div', { class: 'price', text: `${brl(p.preco_centavos)}/${p.intervalo_dias === 30 ? 'mês' : p.intervalo_dias + ' dias'}` })
+            ),
+            el('p', { class: 'small muted', text: p.descricao || '' }),
+            el('div', { class: 'chips' },
+              ...beneficios.map(b => el('span', { class: 'chip', text: formatBeneficio(b) }))
+            )
+          ),
+          el('div', { class: 'acoes' },
+            el('button', {
+              class: 'btn btn-primary',
+              text: 'Assinar',
+              onclick: () => abrirCheckout(p)
+            })
+          )
+        );
+        container.append(card);
+      }
+    }
+
+    function formatBeneficio(b) {
+      const map = {
+        // Planos novos
+        '4_cortes_mes': '4 cortes por mês',
+        '3_cortes_mes': '3 cortes por mês',
+        '4_servicos_mes': '4 serviços por mês',
+        '3_servicos_mes': '3 serviços por mês',
+        'cabelo_apenas': 'Apenas cabelo',
+        'cabelo_barba': 'Cabelo + Barba',
+        'degrade': 'Corte Degradê',
+        'navalhado': 'Corte Navalhado',
+        'social': 'Corte Social',
+        'barba_inclusa': 'Barba inclusa',
+        'barba_mesclada': 'Barba Mesclada',
+        // Legados (compatibilidade)
+        cortes_ilimitados: 'Cortes ilimitados',
+        acabamentos_ilimitados: 'Acabamentos ilimitados',
+        desconto_20_produtos: '20% off produtos',
+        desconto_30_produtos: '30% off produtos',
+        todos_servicos_ilimitados: 'Todos serviços ilimitados',
+        prioridade_agendamento: 'Prioridade no agendamento',
+        brinde_mensal: 'Brinde mensal',
+      };
+      return map[b] || b.replace(/_/g, ' ');
+    }
+
+    function renderMinhaAssinatura(assinaturaData) {
+      const titulo = $('minha-assinatura-titulo');
+      const container = $('minha-assinatura');
+      const faturasContainer = $('faturas-assinatura');
+
+      if (!assinaturaData?.assinatura) {
+        titulo.hidden = true;
+        container.hidden = true;
+        faturasContainer.hidden = true;
+        return;
+      }
+
+      const a = assinaturaData.assinatura;
+      titulo.hidden = false;
+      container.hidden = false;
+      faturasContainer.hidden = false;
+
+      const statusLabels = {
+        pendente: 'Pendente',
+        ativa: 'Ativa',
+        cancelada: 'Cancelada',
+        atrasada: 'Atrasada',
+        expirada: 'Expirada',
+      };
+      const statusClass = `status-${a.status}`;
+
+      container.innerHTML = '';
+      container.append(el('div', { class: 'item assinatura-card' },
+        el('div', { class: 'top' },
+          el('strong', { text: a.plano?.nome || 'Plano' }),
+          el('span', { class: `pill ${statusClass}`, text: statusLabels[a.status] || a.status })
+        ),
+        el('div', { class: 'detalhes' },
+          el('span', { text: `Próxima cobrança: ${a.proxima_cobranca ? new Date(a.proxima_cobranca).toLocaleDateString('pt-BR') : '—'}` }),
+          el('span', { text: `Valor: ${brl(a.plano?.preco_centavos || 0)}/${a.plano?.intervalo_dias === 30 ? 'mês' : a.plano?.intervalo_dias + ' dias'}` }),
+          el('span', { class: 'small muted', text: `Iniciada em: ${a.criado_em ? new Date(a.criado_em).toLocaleDateString('pt-BR') : '—'}` })
+        ),
+        el('div', { class: 'acoes' },
+          el('button', {
+            class: 'btn btn-small btn-danger',
+            text: 'Cancelar assinatura',
+            onclick: () => cancelarAssinatura(a.id)
+          })
+        )
+      ));
+
+      // Carrega faturas
+      carregarFaturas(a.id);
+    }
+
+    async function carregarFaturas(assinaturaId) {
+      try {
+        // Busca faturas via API (precisa adicionar endpoint ou buscar via minha-assinatura expandido)
+        // Por enquanto, busca via endpoint admin se for admin, ou criamos endpoint simples
+        // Vamos usar um endpoint temporário ou buscar direto
+        const { assinatura } = await api.get('/api/minha-assinatura');
+        // As faturas não vêm no endpoint atual, vamos simular ou adicionar depois
+        const faturasContainer = $('faturas-assinatura');
+        faturasContainer.innerHTML = '';
+        faturasContainer.append(el('p', { class: 'small muted', text: 'Histórico de cobranças será exibido aqui.' }));
+      } catch (e) {
+        // Silencioso
+      }
+    }
+
+    function renderMetodosPagamento(metodos) {
+      // Usado no checkout para selecionar cartão salvo
+    }
+
+    function abrirCheckout(plano) {
+      planoSelecionado = plano;
+      metodoSelecionado = null;
+
+      const container = $('plano-checkout-resumo');
+      container.innerHTML = '';
+      container.append(el('div', { class: 'checkout-item' },
+        el('strong', { text: plano.nome }),
+        el('span', { text: `${brl(plano.preco_centavos)}/${plano.intervalo_dias === 30 ? 'mês' : plano.intervalo_dias + ' dias'}` })
+      ));
+
+      // Carrega métodos de pagamento
+      carregarMetodosParaCheckout();
+
+      $('dlg-plano-checkout').showModal();
+    }
+
+    async function carregarMetodosParaCheckout() {
+      try {
+        const { metodos } = await api.get('/api/metodos-pagamento');
+        const select = $('plano-metodo');
+        select.innerHTML = '<option value="">Selecione um cartão salvo</option>';
+
+        if (metodos.length === 0) {
+          select.innerHTML += '<option value="" disabled>Nenhum cartão salvo</option>';
+          $('plano-novo-cartao').hidden = false;
+        } else {
+          for (const m of metodos) {
+            const label = `${m.marca || 'Cartão'} •••• ${m.ultimos4 || '****'} (${m.expiracao || '**/**'})${m.padrao ? ' ⭐' : ''}`;
+            select.append(el('option', { value: m.id }, label));
+          }
+          select.value = metodos.find(m => m.padrao)?.id || metodos[0].id;
+          $('plano-novo-cartao').hidden = true;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function confirmarAssinatura() {
+      if (!planoSelecionado) return;
+      const metodoId = $('plano-metodo').value;
+      if (!metodoId) {
+        $('plano-erro').textContent = 'Selecione um método de pagamento.';
+        $('plano-erro').hidden = false;
+        return;
+      }
+
+      $('plano-erro').hidden = true;
+      $('plano-confirmar').disabled = true;
+      $('plano-confirmar').textContent = 'Processando...';
+
+      try {
+        await api.post('/api/assinaturas', {
+          plano_id: planoSelecionado.id,
+          metodo_pagamento_id: Number(metodoId),
+          forma_pagamento: 'cartao',
+        });
+        toast('Assinatura criada com sucesso!');
+        $('dlg-plano-checkout').close();
+        planoSelecionado = null;
+        carregarPlanos(); // Atualiza UI
+      } catch (e) {
+        $('plano-erro').textContent = e.message;
+        $('plano-erro').hidden = false;
+      } finally {
+        $('plano-confirmar').disabled = false;
+        $('plano-confirmar').textContent = 'Confirmar assinatura';
+      }
+    }
+
+    async function cancelarAssinatura(id) {
+      if (!confirm('Tem certeza que deseja cancelar sua assinatura? O acesso aos benefícios continuará até o fim do período pago.')) return;
+      try {
+        await api.put(`/api/assinaturas/${id}/cancelar`);
+        toast('Assinatura cancelada.');
+        carregarPlanos();
+      } catch (e) {
+        toast(e.message, true);
+      }
+    }
+
+    // ─── Eventos dos Modais ───
+    $('plano-cancelar').addEventListener('click', () => {
+      $('dlg-plano-checkout').close();
+      planoSelecionado = null;
+    });
+
+    $('form-plano-checkout').addEventListener('submit', (e) => {
+      e.preventDefault();
+      confirmarAssinatura();
+    });
+
+    $('plano-cadastrar-cartao').addEventListener('click', () => {
+      $('dlg-plano-checkout').close();
+      $('dlg-cartao').showModal();
+    });
+
+    $('cartao-abrir-mp').addEventListener('click', () => {
+      // TODO: Abrir checkout do Mercado Pago para cadastrar cartão
+      // window.open('/api/metodos-pagamento/checkout?cliente=...', '_blank');
+      toast('Em desenvolvimento: abra o Mercado Pago e cadastre o cartão, depois volte aqui.');
+    });
+
+    $('cartao-fechar').addEventListener('click', () => {
+      $('dlg-cartao').close();
+    });
+
+    // ─── Inicializa ───
     carregarMinhaAgenda();
     carregarHorarios();
+    carregarPlanos();
 
   } catch (erro) {
     toast(erro.message, true);

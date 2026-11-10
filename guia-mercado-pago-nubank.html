@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia: Receber Assinaturas no Nubank via Mercado Pago</title>
+<style>
+  @page { margin: 2cm; size: A4; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6; color: #1a1a1a; max-width: 210mm; margin: 0 auto; padding: 20px;
+    background: #fff;
+  }
+  h1, h2, h3 { color: #0d3b66; font-weight: 700; line-height: 1.3; }
+  h1 { font-size: 28px; border-bottom: 3px solid #0066cc; padding-bottom: 12px; margin-bottom: 24px; }
+  h2 { font-size: 20px; margin-top: 28px; margin-bottom: 12px; padding-left: 8px; border-left: 4px solid #0066cc; }
+  h3 { font-size: 16px; margin-top: 18px; margin-bottom: 8px; color: #333; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 6px 0; }
+  code { background: #f0f4f8; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 0.9em; color: #0d3b66; }
+  pre { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; color: inherit; }
+  .badge { display: inline-block; background: #0066cc; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .badge-ok { background: #10b981; }
+  .badge-warn { background: #f59e0b; }
+  .badge-danger { background: #ef4444; }
+  .card { border: 1px solid #e0e4e8; border-radius: 10px; padding: 20px; margin: 16px 0; background: #fafbfc; }
+  .card-title { font-weight: 700; color: #0d3b66; margin-bottom: 12px; font-size: 15px; }
+  .step { counter-increment: step; position: relative; padding-left: 48px; margin: 16px 0; }
+  .step::before { content: counter(step); position: absolute; left: 0; top: 0; width: 32px; height: 32px; background: #0066cc; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .tip { border-left: 4px solid #10b981; background: #ecfdf5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .tip::before { content: "💡 Dica: "; font-weight: 700; color: #065f46; }
+  .warning { border-left: 4px solid #f59e0b; background: #fffbeb; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .warning::before { content: "⚠️ Atenção: "; font-weight: 700; color: #92400e; }
+  .danger { border-left: 4px solid #ef4444; background: #fef2f2; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .danger::before { content: "🚫 Não existe: "; font-weight: 700; color: #991b1b; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { border: 1px solid #e0e4e8; padding: 10px 12px; text-align: left; }
+  th { background: #0d3b66; color: #fff; font-weight: 600; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { position: relative; padding-left: 28px; margin: 10px 0; font-size: 15px; }
+  .checklist li::before { content: "☐"; position: absolute; left: 0; font-size: 18px; color: #0066cc; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e4e8; text-align: center; color: #666; font-size: 12px; }
+  .flow { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .flow-box { flex: 1; min-width: 140px; padding: 16px; background: #f0f4f8; border-radius: 8px; text-align: center; border: 2px solid #d0d8e0; }
+  .flow-box strong { display: block; margin-bottom: 6px; color: #0d3b66; }
+  .flow-arrow { display: flex; align-items: center; color: #0066cc; font-size: 24px; font-weight: 700; }
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none; }
+    a { text-decoration: none; color: inherit; }
+  }
+</style>
+</head>
+<body>
+<header style="text-align:center; margin-bottom:32px;">
+  <div class="badge" style="font-size:14px; padding:6px 16px; margin-bottom:12px;">Guia de Configuração</div>
+  <h1>Receber Assinaturas Mensais<br>na Conta Nubank da Barbearia</h1>
+  <p style="color:#555; font-size:16px;">Configuração do Mercado Pago para cobrança recorrente automática</p>
+  <p style="font-size:13px; color:#888;">Sistema Navalha Barbearia — Versão 1.0</p>
+</header>
+
+<section>
+  <h2>Visão Geral do Fluxo</h2>
+  <p>O Nubank <strong>não tem API própria</strong> para cobrança recorrente (assinaturas). O padrão do mercado brasileiro é usar um <strong>gateway de pagamento</strong> (Mercado Pago ou Asaas) que gerencia a recorrência e deposita o dinheiro na sua conta Nubank.</p>
+
+  <div class="flow">
+    <div class="flow-box"><strong>Cliente Final</strong><br>Paga via Pix/Cartão no app do Nubank (ou qualquer banco)</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box"><strong>Mercado Pago</strong><br>Gerencia assinatura, cobra todo mês, retentativa se falhar</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box"><strong>Sua Conta Nubank</strong><br>Recebe transferência automática (TED/Pix) em 1-2 dias úteis</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✅ O que você ganha com isso</div>
+    <ul>
+      <li>Cobrança automática todo mês — sem correr atrás de cliente</li>
+      <li>Retentativa inteligente se o pagamento falhar (cartão vencido, saldo insuficiente)</li>
+      <li>Cliente paga via <strong>Pix pelo app do Nubank</strong> (cai na hora)</li>
+      <li>Dinheiro cai na sua conta Nubank (PJ ou PF/MEI) automaticamente</li>
+      <li>Relatórios, split, antecipação de recebíveis — tudo no painel do Mercado Pago</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Passo a Passo (≈ 15 minutos)</h2>
+
+  <div class="step">
+    <h3>1. Criar conta no Mercado Pago</h3>
+    <ol>
+      <li>Acesse: <a href="https://www.mercadopago.com.br/ativacao" target="_blank">mercadopago.com.br/ativacao</a></li>
+      <li>Escolha o tipo de conta:
+        <ul>
+          <li><strong>Pessoa Jurídica</strong> — se a barbearia tem CNPJ (recomendado)</li>
+          <li><strong>MEI / Pessoa Física</strong> — usa seu CPF</li>
+        </ul>
+      </li>
+      <li>Complete o cadastro: dados da empresa, endereço, validação de identidade (selfie + documento)</li>
+      <li>Aguarde aprovação (geralmente imediata para PJ, até 24h para PF)</li>
+    </ol>
+    <div class="tip">Use o <strong>mesmo CNPJ/CPF</strong> que está na conta Nubank da barbearia — evita problemas na transferência.</div>
+  </div>
+
+  <div class="step">
+    <h3>2. Cadastrar a conta Nubank para receber os pagamentos</h3>
+    <ol>
+      <li>No painel do Mercado Pago: <strong>Configurações</strong> (engrenagem) → <strong>Dados bancários</strong></li>
+      <li>Clique em <strong>Adicionar conta bancária</strong></li>
+      <li>Preencha:
+        <ul>
+          <li><strong>Tipo:</strong> Conta corrente (Nubank PJ) ou Conta poupança (Nubank PF/MEI)</li>
+          <li><strong>Chave Pix:</strong> CNPJ (se PJ) ou CPF/email/telefone (se PF/MEI)</li>
+          <li><strong>Titular:</strong> Mesmo nome/CNPJ/CPF da conta Mercado Pago</li>
+        </ul>
+      </li>
+      <li>Confirme com o código enviado pelo app do Nubank (notificação push)</li>
+      <li>Status deve ficar <strong>"Verificada"</strong> / <strong>"Ativa"</strong></li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <h3>3. Obter as credenciais da API</h3>
+    <ol>
+      <li>No painel: <strong>Desenvolvedores</strong> → <strong>Credenciais de produção</strong></li>
+      <li>Copie os 3 valores abaixo:</li>
+    </ol>
+
+    <pre><code>Access Token (começa com APP_USR-) → MP_ACCESS_TOKEN
+Public Key (começa com APP_USR-)  → MP_PUBLIC_KEY
+Webhook Secret (gerar novo)       → MP_WEBHOOK_SECRET</code></pre>
+
+    <div class="warning"><strong>Importante:</strong> Use a aba <strong>"Produção"</strong>, não "Teste". O Webhook Secret você gera clicando em "Gerar novo" na seção de webhooks.</div>
+  </div>
+
+  <div class="step">
+    <h3>4. Configurar o Webhook (para o sistema saber quando pagou)</h3>
+    <ol>
+      <li>No painel: <strong>Desenvolvedores</strong> → <strong>Webhooks</strong> → <strong>Novo webhook</strong></li>
+      <li><strong>URL:</strong> <code>https://SEU-DOMINIO.com/api/webhook/mercadopago</code><br><span style="font-size:13px;color:#666;">(Substitua SEU-DOMINIO pelo endereço onde o sistema está hospedado, ex: barbearia.seudominio.com)</span></li>
+      <li><strong>Eventos a selecionar:</strong>
+        <ul>
+          <li><code>payment</code> (pagamento aprovado/recusado)</li>
+          <li><code>subscription_preapproval</code> (assinatura criada/cancelada)</li>
+        </ul>
+      </li>
+      <li>Salve → será gerado um <strong>Webhook Secret</strong> — copie esse valor também</li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <h3>5. Enviar as credenciais para o desenvolvedor (você)</h3>
+    <p>Mande apenas estas 4 linhas (pode ser por WhatsApp/e-mail):</p>
+
+    <pre><code>MP_ACCESS_TOKEN=APP_USR-XXXXXXXXXXXXXXXXXXXX
+MP_PUBLIC_KEY=APP_USR-XXXXXXXXXXXXXXXXXXXX
+MP_WEBHOOK_SECRET=WHS_XXXXXXXXXXXXXXXXXXXX
+PAGAMENTO_GATEWAY=mercadopago</code></pre>
+
+    <div class="tip">Nunca compartilhe essas credenciais publicamente (GitHub, sites, chatbots). Trate como senha bancária.</div>
+  </div>
+</section>
+
+<section>
+  <h2>Custos (Mercado Pago — Produção)</h2>
+  <table>
+    <thead>
+      <tr><th>Meio de Pagamento</th><th>Taxa</th><th>Quando cai na conta Nubank</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Pix</strong> (recomendado)</td><td><strong>3,99% + R$ 0,39</strong></td><td>Na hora ou 1 dia útil</td></tr>
+      <tr><td>Cartão de débito</td><td>4,98%</td><td>1 dia útil</td></tr>
+      <tr><td>Cartão de crédito</td><td>4,98% + parcelamento</td><td>14 a 30 dias (ou antecipa pagando taxa extra)</td></tr>
+      <tr><td>Boleto</td><td>R$ 3,49 por boleto pago</td><td>1 a 2 dias úteis</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Exemplo:</strong> Plano R$ 149,00 via Pix → taxa R$ 6,34 → você recebe <strong>R$ 142,66</strong> na conta Nubank.</p>
+</section>
+
+<section>
+  <h2>O que <span class="badge-danger">NÃO</span> existe (evite promessas falsas)</h2>
+  <div class="danger">API direta do Nubank para "débito automático em conta" — não existe abertura para desenvolvedores terceiros.</div>
+  <div class="danger">"Pix agendado recorrente" nativo — o Pix não tem recorrência; precisa de gateway.</div>
+  <div class="danger">Cobrança direta via NuPay sem gateway — NuPay é para e-commerce pontual, não assinaturas gerenciadas.</div>
+</section>
+
+<section>
+  <h2>Checklist Final</h2>
+  <ul class="checklist">
+    <li>Conta Mercado Pago criada com CNPJ/CPF da barbearia</li>
+    <li>Conta Nubank vinculada como conta de recebimento (status "Verificada")</li>
+    <li>Credenciais geradas: Access Token, Public Key, Webhook Secret</li>
+    <li>Webhook configurado apontando para <code>https://SEU-DOMINIO.com/api/webhook/mercadopago</code></li>
+    <li>Credenciais enviadas pro desenvolvedor colocar no <code>.env</code> do sistema</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Depois que o desenvolvedor configurar</h2>
+  <ol>
+    <li>Sistema faz o deploy no servidor (VPS/Docker)</li>
+    <li>Teste no modo <strong>Sandbox</strong> primeiro (o desenvolvedor sabe como)</li>
+    <li>Cliente final acessa a aba <strong>"Planos"</strong> no sistema</li>
+    <li>Clica em <strong>"Assinar"</strong> → escolhe <strong>Pix</strong> → abre app do Nubank → aprova</li>
+    <li>Todo mês: cobrança automática → dinheiro cai na sua conta Nubank</li>
+  </ol>
+</section>
+
+<footer class="footer">
+  <p>Dúvidas? Fale com o desenvolvedor do sistema (Jonas).</p>
+  <p>Sistema Navalha Barbearia — <a href="https://github.com" target="_blank">Documentação técnica completa</a></p>
+</footer>
+
+<script>
+  // Add print button for convenience
+  if (window.location.protocol !== 'file:') {
+    const btn = document.createElement('button');
+    btn.textContent = '🖨️ Imprimir / Salvar como PDF';
+    btn.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;background:#0066cc;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:9999;';
+    btn.onclick = () => window.print();
+    document.body.appendChild(btn);
+  }
+</script>
+</body>
+</html>

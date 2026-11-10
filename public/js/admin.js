@@ -284,6 +284,7 @@
   function desenharServicos() {
     const linhas = estado.servicos.map((s) => el('tr', {},
       el('td', {}, el('strong', { text: s.nome })),
+      el('td', { text: categoriaLabel(s.categoria) }),
       el('td', { text: `${s.duracao_min} min` }),
       el('td', { text: brl(s.preco_centavos) }),
       el('td', {}, statusPill(s.ativo)),
@@ -295,14 +296,19 @@
           onclick: () => alternarServico(s),
         }))));
     $('tabela-servicos').replaceChildren(tabela(
-      [['Serviço'], ['Duração'], ['Preço'], ['Status'], ['', 'acoes']],
+      [['Serviço'], ['Categoria'], ['Duração'], ['Preço'], ['Status'], ['', 'acoes']],
       linhas, 'Nenhum serviço cadastrado. Comece criando o primeiro.'));
+  }
+
+  function categoriaLabel(cat) {
+    const labels = { individual: 'Individual', combo: 'Conjunto / Combo', plano: 'Plano' };
+    return labels[cat] || cat;
   }
 
   async function alternarServico(s) {
     try {
       await api.put(`/api/servicos/${s.id}`, {
-        nome: s.nome, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, ativo: !s.ativo,
+        nome: s.nome, categoria: s.categoria, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, ativo: !s.ativo,
       });
       await recarregar();
       toast(s.ativo ? 'Serviço desativado.' : 'Serviço ativado.');
@@ -316,6 +322,7 @@
     servicoEditando = servico || null;
     $('dlg-servico-titulo').textContent = servico ? 'Editar serviço' : 'Novo serviço';
     $('sv-nome').value = servico ? servico.nome : '';
+    $('sv-categoria').value = servico ? servico.categoria : 'individual';
     $('sv-duracao').value = servico ? servico.duracao_min : 30;
     $('sv-preco').value = servico ? centavosParaReais(servico.preco_centavos) : '';
     $('sv-ativo').checked = servico ? servico.ativo : true;
@@ -334,6 +341,7 @@
     if (Number.isNaN(preco)) return mostrarErro('sv-erro', 'Informe o preço, por exemplo 45,00.');
     const corpo = {
       nome: $('sv-nome').value,
+      categoria: $('sv-categoria').value,
       duracao_min: parseInt($('sv-duracao').value, 10),
       preco_centavos: preco,
     };
