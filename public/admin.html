@@ -3,42 +3,54 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Administração · Navalha</title>
+<title>Administração · Barbearia Andrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 </head>
-<body>
+<body class="admin-page">
+<a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
 <svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
-<body>
-<div class="shell">
-  <aside class="side">
-    <div class="brand">NAVALHA</div>
+<div class="shell admin-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+    <div class="sidebar-brand">
+      <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
+    </div>
     <nav class="nav" aria-label="Seções">
-      <button class="nav-btn" id="nav-dashboard" type="button" aria-current="page">Dashboard</button>
-      <button class="nav-btn" id="nav-servicos" type="button">Serviços</button>
-      <button class="nav-btn" id="nav-barbeiros" type="button">Barbeiros</button>
-      <button class="nav-btn" id="nav-agenda" type="button">Agenda</button>
-      <button class="nav-btn" id="nav-bloqueios" type="button">Bloqueios</button>
-      <button class="nav-btn" id="nav-produtos" type="button">Produtos</button>
-      <button class="nav-btn" id="nav-pdv" type="button">PDV</button>
-      <button class="nav-btn" id="nav-caixa" type="button">Caixa</button>
-      <button class="nav-btn" id="nav-comissoes" type="button">Comissões</button>
+      <button class="nav-item" id="nav-dashboard" type="button" aria-current="page"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-dashboard"/></svg>Dashboard</button>
+      <button class="nav-item" id="nav-servicos" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg>Serviços</button>
+      <button class="nav-item" id="nav-barbeiros" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-user"/></svg>Barbeiros</button>
+      <button class="nav-item" id="nav-agenda" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-calendar"/></svg>Agenda</button>
+      <button class="nav-item" id="nav-bloqueios" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-shield"/></svg>Bloqueios</button>
+      <button class="nav-item" id="nav-produtos" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-box"/></svg>Produtos</button>
+      <button class="nav-item" id="nav-planos" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-money"/></svg>Planos</button>
+      <button class="nav-item" id="nav-pdv" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-pos"/></svg>PDV</button>
+      <button class="nav-item" id="nav-caixa" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-safe"/></svg>Caixa</button>
+      <button class="nav-item" id="nav-comissoes" type="button"><svg class="icon icon-md" aria-hidden="true"><use href="icons/icons.svg#icon-percent"/></svg>Comissões</button>
     </nav>
-    <div class="side-user">
-      <span class="avatar" id="avatar" aria-hidden="true"></span>
-      <div>
-        <div class="small" id="nome-admin"></div>
-        <div class="small muted-on-dark">Administrador</div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="nome-admin"></div>
+          <div class="sidebar-user-role">Administrador</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="sair" type="button">Sair</button>
       </div>
-      <button class="btn" id="sair" type="button">Sair</button>
     </div>
   </aside>
 
-  <main class="main">
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <main class="main" id="main-content" role="main">
+    <header class="main-header">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+        <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
+      </button>
+      <div class="main-title"><h1 class="display" id="titulo-dashboard">Dashboard</h1></div>
+      <div style="width: 48px;"></div>
+    </header>
+
     <section id="view-dashboard" aria-labelledby="titulo-dashboard">
-      <div class="main-head">
-        <h1 class="display" id="titulo-dashboard">Dashboard</h1>
-      </div>
 
       <!-- KPI Cards -->
       <div class="kpi-grid" id="kpi-cards" role="region" aria-label="Indicadores principais"></div>
@@ -62,7 +74,7 @@
       </div>
     </section>
 
-    <section id="view-servicos" aria-labelledby="titulo-servicos">
+    <section id="view-servicos" aria-labelledby="titulo-servicos" hidden>
       <div class="main-head">
         <h1 class="display" id="titulo-servicos">Serviços</h1>
         <button class="btn btn-primary" id="novo-servico" type="button">+ Novo serviço</button>
@@ -120,6 +132,17 @@
         <button class="btn btn-primary" id="novo-produto" type="button">+ Novo produto</button>
       </div>
       <div class="tabela" id="tabela-produtos"></div>
+    </section>
+
+    <section id="view-planos" aria-labelledby="titulo-planos" hidden>
+      <div class="main-head">
+        <div>
+          <h1 class="display" id="titulo-planos">Planos</h1>
+          <p class="muted small">Gerencie os planos de assinatura exibidos para os clientes.</p>
+        </div>
+        <button class="btn btn-primary" id="novo-plano" type="button">+ Novo plano</button>
+      </div>
+      <div class="tabela" id="tabela-planos" aria-live="polite"></div>
     </section>
 
     <section id="view-pdv" aria-labelledby="titulo-pdv" hidden>
@@ -492,6 +515,41 @@
     <div class="dlg-actions">
       <button class="btn btn-line" type="button" id="pdp-cancelar">Cancelar</button>
       <button class="btn btn-primary" type="submit" id="pdp-salvar">Adicionar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-plano" aria-labelledby="dlg-plano-titulo">
+  <form class="dlg" id="form-plano" novalidate>
+    <h2 class="display" id="dlg-plano-titulo">Novo plano</h2>
+    <div class="field">
+      <label for="pl-nome">Nome do plano</label>
+      <input class="input" id="pl-nome" maxlength="60" required>
+    </div>
+    <div class="field">
+      <label for="pl-descricao">Descrição</label>
+      <textarea class="input" id="pl-descricao" maxlength="500" rows="3"></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pl-preco">Preço (R$)</label>
+        <input class="input" id="pl-preco" inputmode="decimal" placeholder="120,00" required>
+      </div>
+      <div class="field">
+        <label for="pl-intervalo">Intervalo (dias)</label>
+        <input class="input" id="pl-intervalo" type="number" min="1" max="365" value="30" required>
+      </div>
+    </div>
+    <div class="field">
+      <label for="pl-beneficios">Benefícios (um por linha)</label>
+      <textarea class="input" id="pl-beneficios" rows="4" placeholder="4 cortes por mês&#10;Cabelo + Barba"></textarea>
+      <span class="field-hint">Um benefício por linha. Códigos conhecidos, como 4_cortes_mes, são traduzidos na tela do cliente.</span>
+    </div>
+    <label class="check" id="pl-ativo-wrap" hidden><input type="checkbox" id="pl-ativo"> Plano ativo (visível para os clientes)</label>
+    <div class="erro" id="pl-erro" role="alert" hidden></div>
+    <div class="dlg-actions">
+      <button class="btn btn-line" type="button" id="pl-cancelar">Cancelar</button>
+      <button class="btn btn-primary" type="submit" id="pl-salvar">Salvar plano</button>
     </div>
   </form>
 </dialog>

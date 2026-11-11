@@ -3,76 +3,102 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Minha jornada · Navalha</title>
+<title>Minha jornada · Barbearia Andrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+<a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
 <svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
-<body>
-<main class="app">
+<div class="shell">
   <header class="topbar">
-    <div class="brand">NAVALHA</div>
+    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+      <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
+    </button>
+    <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
     <div class="who">
       <span class="avatar" id="avatar" aria-hidden="true"></span>
-      <button class="btn btn-small btn-line" id="sair" type="button">Sair</button>
+      <button class="btn btn-sm btn-outline" id="sair" type="button">Sair</button>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="Seções do barbeiro">
-    <button class="tab" role="tab" id="tab-agenda" aria-selected="true" type="button">Agenda de hoje</button>
-    <button class="tab" role="tab" id="tab-jornada" aria-selected="false" type="button">Minha jornada</button>
-    <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
-    <button class="tab" role="tab" id="tab-comissoes" aria-selected="false" type="button">Comissões</button>
-    <button class="tab" role="tab" id="tab-clientes" aria-selected="false" type="button">Clientes</button>
-  </nav>
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
-  <section class="tabpanel" id="panel-agenda" role="tabpanel" aria-labelledby="tab-agenda">
-    <div class="card" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
-      <label for="bb-data" class="label" style="margin: 0;">Data</label>
-      <input class="input" id="bb-data" type="date" style="flex: 1; min-width: 160px;">
-      <select class="input" id="bb-status" style="flex: 1; min-width: 160px;">
-        <option value="">Todos os status</option>
-        <option value="pendente">Pendentes</option>
-        <option value="confirmado">Confirmados</option>
-        <option value="cancelado">Cancelados</option>
-        <option value="concluido">Concluídos</option>
-      </select>
-    </div>
-    <div class="list" id="bb-agenda" aria-live="polite"></div>
-  </section>
+  <main class="main" id="main-content" role="main">
+    <nav class="tabs" role="tablist" aria-label="Seções do barbeiro">
+      <button class="tab" role="tab" id="tab-agenda" aria-selected="true" type="button">Agenda de hoje</button>
+      <button class="tab" role="tab" id="tab-jornada" aria-selected="false" type="button">Minha jornada</button>
+      <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
+      <button class="tab" role="tab" id="tab-comissoes" aria-selected="false" type="button">Comissões</button>
+      <button class="tab" role="tab" id="tab-clientes" aria-selected="false" type="button">Clientes</button>
+    </nav>
 
-  <section class="tabpanel" id="panel-jornada" role="tabpanel" aria-labelledby="tab-jornada" hidden>
-    <div class="card"><div class="dias" id="dias"></div></div>
-  </section>
+    <section class="tabpanel" id="panel-agenda" role="tabpanel" aria-labelledby="tab-agenda">
+      <div class="card">
+        <div class="row">
+          <div class="field">
+            <label for="bb-data" class="field-label">Data</label>
+            <input class="input" id="bb-data" type="date">
+          </div>
+          <div class="field">
+            <label for="bb-status" class="field-label">Status</label>
+            <select class="input" id="bb-status">
+              <option value="">Todos os status</option>
+              <option value="pendente">Pendentes</option>
+              <option value="confirmado">Confirmados</option>
+              <option value="cancelado">Cancelados</option>
+              <option value="concluido">Concluídos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="list" id="bb-agenda" aria-live="polite"></div>
+    </section>
 
-  <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="tab-servicos" hidden>
-    <h2 class="display section-title">Serviços que atendo</h2>
-    <div class="chips" id="servicos"></div>
-    <p class="muted small" id="comissao"></p>
-  </section>
+    <section class="tabpanel" id="panel-jornada" role="tabpanel" aria-labelledby="tab-jornada" hidden>
+      <div class="card"><div class="dias" id="dias"></div></div>
+    </section>
 
-  <section class="tabpanel" id="panel-comissoes" role="tabpanel" aria-labelledby="tab-comissoes" hidden>
-    <div class="card" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
-      <select class="input" id="bc-status" style="flex: 1; min-width: 160px;">
-        <option value="">Todos os status</option>
-        <option value="a_receber">A receber</option>
-        <option value="pago">Pagas</option>
-      </select>
-      <input class="input" id="bc-data-inicio" type="date" style="flex: 1; min-width: 160px;" placeholder="Data início">
-      <input class="input" id="bc-data-fim" type="date" style="flex: 1; min-width: 160px;" placeholder="Data fim">
-    </div>
-    <div class="tabela" id="bc-tabela"></div>
-    <div class="tabela" id="bc-resumo" style="margin-top: 16px;"></div>
-  </section>
+    <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="tab-servicos" hidden>
+      <h2 class="display section-title">Serviços que atendo</h2>
+      <div class="chips" id="servicos"></div>
+      <p class="muted small" id="comissao"></p>
+    </section>
 
-  <section class="tabpanel" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes" hidden>
-    <div class="card" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
-      <input class="input" id="bcl-busca" type="text" placeholder="Buscar cliente..." style="flex: 1; min-width: 200px;">
-    </div>
-    <div class="list" id="bcl-lista"></div>
-  </section>
-</main>
+    <section class="tabpanel" id="panel-comissoes" role="tabpanel" aria-labelledby="tab-comissoes" hidden>
+      <div class="card">
+        <div class="field" style="flex: 1; min-width: 160px;">
+          <label for="bc-status" class="field-label">Status</label>
+          <select class="input" id="bc-status">
+            <option value="">Todos os status</option>
+            <option value="a_receber">A receber</option>
+            <option value="pago">Pagas</option>
+          </select>
+        </div>
+        <div class="field" style="flex: 1; min-width: 160px;">
+          <label for="bc-data-inicio" class="field-label">Data início</label>
+          <input class="input" id="bc-data-inicio" type="date" placeholder="Data início">
+        </div>
+        <div class="field" style="flex: 1; min-width: 160px;">
+          <label for="bc-data-fim" class="field-label">Data fim</label>
+          <input class="input" id="bc-data-fim" type="date" placeholder="Data fim">
+        </div>
+      </div>
+      <div class="tabela" id="bc-tabela"></div>
+      <div class="tabela" id="bc-resumo" style="margin-top: 16px;"></div>
+    </section>
+
+    <section class="tabpanel" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes" hidden>
+      <div class="card">
+        <div class="field" style="flex: 1; min-width: 200px;">
+          <label for="bcl-busca" class="field-label sr-only">Buscar cliente</label>
+          <input class="input" id="bcl-busca" type="text" placeholder="Buscar cliente...">
+        </div>
+      </div>
+      <div class="list" id="bcl-lista"></div>
+    </section>
+  </main>
+</div>
 <script src="js/app.js"></script>
 <script src="js/barbeiro.js"></script>
 </body>

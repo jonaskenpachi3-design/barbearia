@@ -14,11 +14,49 @@
     const tabs = ['agendar', 'minha-agenda', 'planos', 'servicos', 'barbeiros'];
     const tabBtns = tabs.map(t => $(`tab-${t}`));
     const tabPanels = tabs.map(t => $(`panel-${t}`));
+    const menuBtn = $('mobile-menu-btn');
+    const sidebar = $('sidebar');
+    const sidebarOverlay = $('sidebar-overlay');
+    const menuCloseBtn = $('fechar-menu');
+    const sidebarTabs = sidebar.querySelectorAll('[data-tab-index]');
+
     function mostrarTab(idx) {
       tabBtns.forEach((b, i) => b.setAttribute('aria-selected', i === idx ? 'true' : 'false'));
       tabPanels.forEach((p, i) => p.hidden = i !== idx);
+      sidebarTabs.forEach((b) => {
+        const selecionado = Number(b.dataset.tabIndex) === idx;
+        b.classList.toggle('active', selecionado);
+        if (selecionado) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      });
     }
+
+    function definirMenuAberto(aberto, devolverFoco = false) {
+      sidebar.classList.toggle('open', aberto);
+      sidebarOverlay.classList.toggle('visible', aberto);
+      sidebarOverlay.setAttribute('aria-hidden', String(!aberto));
+      sidebar.setAttribute('aria-hidden', String(!aberto));
+      if (aberto) sidebar.removeAttribute('inert');
+      else sidebar.setAttribute('inert', '');
+      menuBtn.setAttribute('aria-expanded', String(aberto));
+      menuBtn.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
+      if (aberto) menuCloseBtn.focus();
+      else if (devolverFoco) menuBtn.focus();
+    }
+
     tabBtns.forEach((b, i) => b.addEventListener('click', () => mostrarTab(i)));
+    sidebarTabs.forEach((b) => b.addEventListener('click', () => {
+      mostrarTab(Number(b.dataset.tabIndex));
+      definirMenuAberto(false, true);
+    }));
+    menuBtn.addEventListener('click', () => definirMenuAberto(menuBtn.getAttribute('aria-expanded') !== 'true'));
+    menuCloseBtn.addEventListener('click', () => definirMenuAberto(false, true));
+    sidebarOverlay.addEventListener('click', () => definirMenuAberto(false, true));
+    document.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape' && menuBtn.getAttribute('aria-expanded') === 'true') {
+        definirMenuAberto(false, true);
+      }
+    });
     mostrarTab(0);
 
     // ─── Carrega serviços e barbeiros ───
@@ -128,7 +166,7 @@
     });
 
     const containerHorarios = $('ag-horarios');
-    const btnConfirmar = el('button', { class: 'btn btn-primary', style: 'margin-top: 12px; width: 100%;', text: 'Confirmar agendamento', onclick: criarAgendamento });
+    const btnConfirmar = el('button', { class: 'btn btn-primary btn-full cliente-booking-submit', text: 'Confirmar agendamento', onclick: criarAgendamento });
     containerHorarios.parentNode.insertBefore(btnConfirmar, containerHorarios.nextSibling);
 
     // ─── Minha Agenda ───
@@ -256,23 +294,39 @@
         container.append(el('p', { class: 'muted', text: 'Nenhum plano disponível no momento.' }));
         return;
       }
+      // Grid de planos
+      container.className = 'plans-grid';
       for (const p of planos) {
         const beneficios = Array.isArray(p.beneficios) ? p.beneficios : [];
-        const card = el('div', { class: 'item plano-card' },
-          el('div', {},
-            el('div', { class: 'plano-header' },
-              el('strong', { text: p.nome }),
-              el('div', { class: 'price', text: `${brl(p.preco_centavos)}/${p.intervalo_dias === 30 ? 'mês' : p.intervalo_dias + ' dias'}` })
+        const isPopular = p.popular === true;
+        const intervaloTexto = p.intervalo_dias === 30 ? 'mês' : p.intervalo_dias + ' dias';
+
+        const card = el('div', { class: `plan-card${isPopular ? ' popular' : ''}` },
+          isPopular ? el('div', { class: 'plan-badge' }, 'MAIS POPULAR') : '',
+          el('div', { class: 'plan-header' },
+            el('div', { class: 'plan-name-row' },
+              el('h3', { class: 'plan-name' }, p.nome),
+              el('div', {},
+                el('div', { class: 'plan-price' }, brl(p.preco_centavos)),
+                el('span', { class: 'plan-period' }, `/${intervaloTexto}`)
+              )
             ),
-            el('p', { class: 'small muted', text: p.descricao || '' }),
-            el('div', { class: 'chips' },
-              ...beneficios.map(b => el('span', { class: 'chip', text: formatBeneficio(b) }))
-            )
+            el('p', { class: 'plan-description' }, p.descricao || '')
+          ),
+          el('div', { class: 'plan-features' },
+            ...beneficios.map(b => el('div', { class: `plan-feature included` },
+              el('svg', { class: 'icon icon-sm', innerHTML: '<use href="icons/icons.svg#icon-check"/>' }),
+              formatBeneficio(b)
+            ))
+          ),
+          el('div', { class: 'plan-limit' },
+            el('svg', { class: 'icon icon-sm', innerHTML: '<use href="icons/icons.svg#icon-check"/>' }),
+            `Assinar por ${brl(p.preco_centavos)}/${intervaloTexto}`
           ),
           el('div', { class: 'acoes' },
             el('button', {
-              class: 'btn btn-primary',
-              text: 'Assinar',
+              class: 'btn btn-primary btn-full',
+              text: isPopular ? 'Assinar Agora' : 'Assinar',
               onclick: () => abrirCheckout(p)
             })
           )

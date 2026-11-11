@@ -3,42 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrar · Navalha</title>
+<title>Entrar · Barbearia Andrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 </head>
-<body class="login-page">
+<body class="login-shell">
 <svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
-<main class="login-wrap">
-  <header>
-    <div class="brand">NAVALHA</div>
-    <p class="lead" id="lead">Escolha o barbeiro, o serviço e o horário. Sem fila, sem ligação.</p>
+<main class="login-card" role="main">
+  <header class="login-header">
+    <div class="login-logo">
+      <svg class="icon icon-2xl" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg>
+    </div>
+    <h1>Bem-vindo</h1>
+    <p id="lead">Excelência em corte e barba. Tradição e estilo desde 2019.</p>
   </header>
 
+  <!-- Mode Toggle: Login / Cadastro -->
+  <div class="login-mode" role="tablist" aria-label="Modo de acesso">
+    <button class="login-mode-btn active" role="tab" id="tab-login" aria-selected="true" type="button" data-mode="login">Entrar</button>
+    <button class="login-mode-btn" role="tab" id="tab-cadastro" aria-selected="false" type="button" data-mode="cadastro">Cadastrar</button>
+  </div>
+
   <form class="login-form" id="form" novalidate>
-    <div class="field" id="campo-nome" hidden>
-      <label for="nome">Nome</label>
-      <input class="input" id="nome" autocomplete="name" maxlength="80">
+    <div class="login-field" id="campo-nome" hidden>
+      <label for="nome" class="login-label">Nome completo</label>
+      <input class="input login-input" id="nome" type="text" autocomplete="name" maxlength="80" placeholder="João Silva">
     </div>
-    <div class="field">
-      <label for="email">E-mail</label>
-      <input class="input" id="email" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="120" required>
+    <div class="login-field">
+      <label for="email" class="login-label">E-mail</label>
+      <input class="input login-input" id="email" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="120" required>
     </div>
-    <div class="field" id="campo-telefone" hidden>
-      <label for="telefone">Telefone (opcional)</label>
-      <input class="input" id="telefone" type="tel" autocomplete="tel" placeholder="(68) 90000-0000" maxlength="20">
+    <div class="login-field" id="campo-telefone" hidden>
+      <label for="telefone" class="login-label">Telefone (WhatsApp)</label>
+      <input class="input login-input" id="telefone" type="tel" autocomplete="tel" placeholder="(11) 99999-9999" maxlength="20" inputmode="tel">
     </div>
-    <div class="field">
-      <label for="senha">Senha</label>
-      <input class="input" id="senha" type="password" autocomplete="current-password" maxlength="72" required>
+    <div class="login-field">
+      <label for="senha" class="login-label">Senha</label>
+      <input class="input login-input" id="senha" type="password" autocomplete="current-password" minlength="8" maxlength="72" required placeholder="Mínimo de 8 caracteres">
     </div>
-    <div class="erro" id="erro" role="alert" hidden></div>
-    <button class="btn btn-primary" id="enviar" type="submit">Entrar</button>
+    <div class="field-error" id="erro" role="alert" hidden></div>
+    <button class="btn btn-primary btn-full login-btn" id="enviar" type="submit">Entrar</button>
   </form>
 
-  <p class="small login-foot">
+  <p class="login-footer">
     <span id="troca-texto">Ainda não tem conta?</span>
-    <button class="link-btn" id="troca" type="button">Criar conta</button>
+    <button class="btn btn-ghost btn-sm" id="troca" type="button">Criar conta</button>
+  </p>
+  <p class="login-footer access-alternative">
+    Quer apenas cortar o cabelo, sem fazer um plano?
+    <a href="agendar.html">Agendar um corte sem cadastro</a>
   </p>
 </main>
 <script src="js/app.js"></script>

@@ -1786,9 +1786,10 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     };
   }
 
-  // GET /api/planos - lista planos ativos (público)
+  // GET /api/planos - clientes veem planos ativos; admin também vê inativos.
   r.get('/api/planos', (ctx) => {
-    const planos = db.prepare('SELECT * FROM planos WHERE ativo = 1 ORDER BY preco_centavos ASC').all();
+    const admin = ctx.usuario && ctx.usuario.papel === 'admin';
+    const planos = db.prepare(`SELECT * FROM planos ${admin ? '' : 'WHERE ativo = 1'} ORDER BY preco_centavos ASC`).all();
     return { planos: planos.map(planoParaJson) };
   });
 

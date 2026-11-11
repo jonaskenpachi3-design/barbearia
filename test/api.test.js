@@ -56,6 +56,37 @@ async function loginAdmin() {
   return r.cookie;
 }
 
+test('clientes veem apenas planos ativos e administradores também veem inativos', async () => {
+  const admin = await loginAdmin();
+  const criado = await chamar('POST', '/api/planos', {
+    nome: 'Plano inativo de teste',
+    descricao: 'Não deve aparecer para clientes.',
+    preco_centavos: 10000,
+    intervalo_dias: 30,
+    beneficios: ['4_cortes_mes'],
+    ativo: false,
+  }, admin);
+  assert.equal(criado.status, 201);
+
+  const cadastro = await chamar('POST', '/api/auth/cadastro', {
+    nome: 'Cliente de Planos',
+    email: 'cliente.planos@teste.local',
+    telefone: '68999990000',
+    senha: 'senha-cliente-123',
+  });
+  assert.equal(cadastro.status, 201);
+
+  const anonimo = await chamar('GET', '/api/planos');
+  const cliente = await chamar('GET', '/api/planos', undefined, cadastro.cookie);
+  const listaAdmin = await chamar('GET', '/api/planos', undefined, admin);
+  for (const resposta of [anonimo, cliente]) {
+    assert.equal(resposta.status, 200);
+    assert.ok(resposta.corpo.planos.every((plano) => plano.ativo));
+  }
+  assert.equal(listaAdmin.status, 200);
+  assert.ok(listaAdmin.corpo.planos.some((plano) => plano.id === criado.corpo.plano.id && !plano.ativo));
+});
+
 test('cadastro cria cliente, abre sessão e permite /me', async () => {
   const r = await chamar('POST', '/api/auth/cadastro', {
     nome: 'Rafael Mendes', email: 'Rafael@Email.com', telefone: '(68) 99999-0000', senha: 'minhasenha1',

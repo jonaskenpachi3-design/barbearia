@@ -3,7 +3,7 @@
   const { api, el, brl, iniciais, exigir, sair, toast, DIAS, ORDEM_DIAS } = window.App;
   const $ = (id) => document.getElementById(id);
 
-  const estado = { servicos: [], barbeiros: [], produtos: [], clientes: [] };
+  const estado = { servicos: [], barbeiros: [], produtos: [], planos: [], clientes: [] };
 
   // ───────────── utilidades ─────────────
 
@@ -22,15 +22,16 @@
   }
 
   async function recarregar() {
-    const [{ servicos }, { barbeiros }, { produtos }, { usuarios }] = await Promise.all([
+    const [{ servicos }, { barbeiros }, { produtos }, { planos }] = await Promise.all([
       api.get('/api/servicos'),
       api.get('/api/barbeiros'),
       api.get('/api/produtos'),
-      api.get('/api/auth/me').then(u => api.get('/api/barbeiros')).catch(() => ({ barbeiros: [] })),
+      api.get('/api/planos'),
     ]);
     estado.servicos = servicos;
     estado.barbeiros = barbeiros;
     estado.produtos = produtos;
+    estado.planos = planos;
     // Clientes para PDV
     try {
       const resp = await api.get('/api/servicos'); // reuse auth
@@ -39,6 +40,7 @@
     desenharServicos();
     desenharBarbeiros();
     desenharProdutos();
+    desenharPlanos();
     preencheSelectBarbeiros();
     preencheSelectClientes();
   }
@@ -75,7 +77,7 @@
   // ───────────── navegação ─────────────
 
   function mostrar(secao) {
-    for (const nome of ['dashboard', 'servicos', 'barbeiros', 'agenda', 'bloqueios', 'produtos', 'pdv', 'caixa', 'comissoes']) {
+    for (const nome of ['dashboard', 'servicos', 'barbeiros', 'agenda', 'bloqueios', 'produtos', 'planos', 'pdv', 'caixa', 'comissoes']) {
       $(`view-${nome}`).hidden = nome !== secao;
       const botao = $(`nav-${nome}`);
       if (botao) {
@@ -90,6 +92,7 @@
   $('nav-agenda').addEventListener('click', () => { mostrar('agenda'); carregarAgendaAdmin(); });
   $('nav-bloqueios').addEventListener('click', () => { mostrar('bloqueios'); carregarBloqueios(); });
   $('nav-produtos').addEventListener('click', () => { mostrar('produtos'); });
+  $('nav-planos').addEventListener('click', () => mostrar('planos'));
   $('nav-pdv').addEventListener('click', () => { mostrar('pdv'); initPDV(); });
   $('nav-caixa').addEventListener('click', () => { mostrar('caixa'); carregarCaixaHistorico(); });
   $('nav-comissoes').addEventListener('click', () => { mostrar('comissoes'); carregarComissoes(); carregarComissoesResumo(); });
@@ -717,6 +720,94 @@
   $('bl-data').addEventListener('change', carregarBloqueios);
   $('bl-barbeiro').addEventListener('change', carregarBloqueios);
 
+  // ───────────── PLANOS (Fase 5) ─────────────
+
+  function desenharPlanos() {
+    const linhas = estado.planos.map((plano) => el('tr', {},
+      el('td', {}, el('strong', { text: plano.nome })),
+      el('td', { text: plano.descricao || '—' }),
+      el('td', { text: brl(plano.preco_centavos) }),
+      el('td', { text: `/${plano.intervalo_dias} dias` }),
+      el('td', { text: (plano.beneficios || []).join(', ') || '—' }),
+      el('td', {}, statusPill(plano.ativo)),
+      el('td', { class: 'acoes' },
+        el('button', { class: 'btn btn-small btn-line', type: 'button', text: 'Editar', onclick: () => abrirPlano(plano) }),
+        ' ',
+        el('button', {
+          class: 'btn btn-small btn-line', type: 'button', text: plano.ativo ? 'Desativar' : 'Ativar',
+          onclick: () => alternarPlano(plano),
+        }))));
+    $('tabela-planos').replaceChildren(tabela(
+      [['Plano'], ['Descrição'], ['Preço'], ['Cobrança'], ['Benefícios'], ['Status'], ['', 'acoes']],
+      linhas, 'Nenhum plano cadastrado. Comece criando o primeiro.'));
+  }
+
+  async function alternarPlano(plano) {
+    try {
+      await api.put(`/api/planos/${plano.id}`, {
+        nome: plano.nome,
+        descricao: plano.descricao || '',
+        preco_centavos: plano.preco_centavos,
+        intervalo_dias: plano.intervalo_dias,
+        beneficios: plano.beneficios || [],
+        ativo: !plano.ativo,
+      });
+      await recarregar();
+      toast(plano.ativo ? 'Plano desativado.' : 'Plano ativado.');
+    } catch (erro) {
+      toast(erro.message, true);
+    }
+  }
+
+  let planoEditando = null;
+  function abrirPlano(plano) {
+    planoEditando = plano || null;
+    $('dlg-plano-titulo').textContent = plano ? 'Editar plano' : 'Novo plano';
+    $('pl-nome').value = plano ? plano.nome : '';
+    $('pl-descricao').value = plano ? plano.descricao || '' : '';
+    $('pl-preco').value = plano ? centavosParaReais(plano.preco_centavos) : '';
+    $('pl-intervalo').value = plano ? plano.intervalo_dias : 30;
+    $('pl-beneficios').value = plano ? (plano.beneficios || []).join('\n') : '';
+    $('pl-ativo').checked = plano ? plano.ativo : true;
+    $('pl-ativo-wrap').hidden = !plano;
+    mostrarErro('pl-erro', '');
+    $('dlg-plano').showModal();
+    $('pl-nome').focus();
+  }
+  $('novo-plano').addEventListener('click', () => abrirPlano(null));
+  $('pl-cancelar').addEventListener('click', () => $('dlg-plano').close());
+
+  $('form-plano').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    mostrarErro('pl-erro', '');
+    const preco = reaisParaCentavos($('pl-preco').value);
+    const intervalo = Number($('pl-intervalo').value);
+    if (Number.isNaN(preco) || preco < 0) return mostrarErro('pl-erro', 'Informe um preço válido.');
+    if (!Number.isInteger(intervalo) || intervalo < 1 || intervalo > 365) {
+      return mostrarErro('pl-erro', 'Informe um intervalo entre 1 e 365 dias.');
+    }
+    const corpo = {
+      nome: $('pl-nome').value.trim(),
+      descricao: $('pl-descricao').value.trim(),
+      preco_centavos: preco,
+      intervalo_dias: intervalo,
+      beneficios: $('pl-beneficios').value.split(/\r?\n/).map((beneficio) => beneficio.trim()).filter(Boolean),
+      ativo: $('pl-ativo').checked,
+    };
+    $('pl-salvar').disabled = true;
+    try {
+      if (planoEditando) await api.put(`/api/planos/${planoEditando.id}`, corpo);
+      else await api.post('/api/planos', corpo);
+      $('dlg-plano').close();
+      await recarregar();
+      toast('Plano salvo.');
+    } catch (erro) {
+      mostrarErro('pl-erro', erro.message);
+    } finally {
+      $('pl-salvar').disabled = false;
+    }
+  });
+
   // ───────────── PRODUTOS (Fase 3) ─────────────
 
   function desenharProdutos() {
@@ -1327,6 +1418,8 @@
     $('bl-data').value = hoje;
 
     await recarregar();
+    mostrar('dashboard');
+    await carregarDashboard();
   } catch (erro) {
     toast(erro.message, true);
   }
