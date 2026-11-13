@@ -33,6 +33,98 @@ Se não houver administrador no banco, o sistema cria um e mostra **e-mail e sen
 | `ADMIN_EMAIL` | — | E-mail do admin inicial (opcional) |
 | `ADMIN_SENHA` | — | Senha do admin inicial (opcional) |
 | `COOKIE_SECURE` | `0` | Use `1` somente em produção com HTTPS |
+| `NODE_ENV` | `development` | `production` ativa logs JSON e CSP estrita |
+| `MP_ACCESS_TOKEN` | — | Token Mercado Pago (produção) |
+| `MP_PUBLIC_KEY` | — | Public key Mercado Pago |
+| `MP_WEBHOOK_SECRET` | — | Secret para validação de webhook |
+
+---
+
+## Favicon e PWA
+
+O sistema inclui identidade visual completa:
+
+- **favicon.svg** — Vetor principal (64×64, escudo dourado/preto com tesoura)
+- **favicon-16.png**, **favicon-32.png** — Fallbacks PNG (gerados via `public/favicon-generator.html`)
+- **apple-touch-icon.png** — 180×180 para iOS
+- **site.webmanifest** — Manifesto PWA (theme-color `#D4A843`, name "Barbearia Andrade")
+
+### Gerar PNGs do favicon
+1. Abra `public/favicon-generator.html` no navegador
+2. Clique em **Gerar PNGs**
+3. Baixe o ZIP e extraia `favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png` em `public/`
+
+Todas as páginas HTML já referenciam esses arquivos.
+
+---
+
+## Deploy com Docker
+
+### Build da imagem
+```bash
+docker build -t navalha-barbearia .
+```
+
+### docker-compose (recomendado)
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - COOKIE_SECURE=1
+      - ADMIN_EMAIL=admin@seubarber.com
+      - ADMIN_SENHA=senha-super-forte
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}
+      - MP_PUBLIC_KEY=${MP_PUBLIC_KEY}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+```
+
+```bash
+docker-compose up -d
+```
+
+### HTTPS em produção (Cloudflare Tunnel)
+```bash
+# Instala cloudflared
+# Configura tunnel.yml apontando para localhost:3000
+cloudflared tunnel run --config tunnel.yml navalha
+```
+Isso expõe HTTPS válido para webhooks do Mercado Pago sem configurar certificados no servidor.
+
+---
+
+## Backup do SQLite
+
+### Backup automático (cron)
+```bash
+# Backup diário às 03:00 (mantém 7 dias)
+0 3 * * * sqlite3 /app/data/barbearia.db ".backup /backups/barbearia-$(date +\%F).db" && find /backups -name 'barbearia-*.db' -mtime +7 -delete
+```
+
+### Backup manual
+```bash
+# Com app rodando (WAL mode permite backup online)
+sqlite3 data/barbearia.db ".backup backup-$(date +%F).db"
+
+# Verificar integridade
+sqlite3 backup-2026-01-15.db "PRAGMA integrity_check;"
+```
+
+### Restore
+```bash
+# App parado
+cp backup-2026-01-15.db data/barbearia.db
+# Remove -shm/-wal se existirem
+rm -f data/barbearia.db-shm data/barbearia.db-wal
+```
 
 ---
 
@@ -101,12 +193,26 @@ src/auth.js          # Sessões, cookie HttpOnly, rate limit, RBAC
 src/http.js          # Mini-router nativo
 src/validar.js       # Validação de entrada (email, data ISO, inteiros, Fase 3: produto, venda, caixa, comissão, observação)
 src/routes.js        # Rotas da API (auth, serviços, barbeiros, agendamentos, bloqueios, Fase 3: produtos, comissão/serviço, vendas, caixa, comissões, observações/histórico)
+src/logger.js        # Pino com pretty dev / JSON prod, redaction, request logging, slow query detection
+src/pagamento.js     # Gateway abstração (Mercado Pago/Asaas/Stripe), dev mode stubs
 public/              # Telas (HTML/CSS/JS puro, sem innerHTML)
+  index.html         # Login / cadastro
+  agendar.html       # Agendamento público (sem login)
+  cliente.html       # Área do cliente (5 abas)
+  barbeiro.html      # Área do barbeiro (5 abas)
   admin.html         # Admin: abas Serviços, Barbeiros, Agenda, Bloqueios, Produtos, Caixa, Comissões, Clientes
-  barbeiro.html      # Barbeiro: abas Agenda, Jornada, Serviços, Comissões, Clientes
+  js/app.js          # Auth, navegação, utilitários compartilhados
+  js/cliente.js      # Lógica UI cliente (agendar, minha agenda, planos, serviços, barbeiros)
+  js/barbeiro.js     # Lógica UI barbeiro (agenda, jornada, serviços, comissões, clientes)
   js/admin.js        # Lógica UI admin (Fase 3: produtos, caixa, pdv, comissões)
-  js/barbeiro.js     # Lógica UI barbeiro (Fase 3: comissões, histórico clientes)
+  js/agendar.js      # Agendamento público passo-a-passo
+  css/app.css        # Design system (cores, tipografia, componentes)
+  favicon.svg        # Favicon vetorial principal
+  favicon-generator.html  # Gerador PNG via canvas + JSZip
+  site.webmanifest   # PWA manifest
+  icons/icons.svg    # Sprite de ícones (tesoura, calendário, usuário, etc.)
 test/api.test.js     # Testes de integração da API (35 testes)
+data/                # SQLite database (gitignored)
 ```
 
 ---
@@ -149,7 +255,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | GET | `/api/agenda-admin` | admin | Visão geral `?data=&barbeiro=&status=` |
 
 ### Bloqueios (Fase 2)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/bloqueios` | admin | Lista (filtros `?barbeiro=&data=`) |
@@ -157,7 +262,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | DELETE | `/api/bloqueios/:id` | admin | Remove (libera horários) |
 
 ### Produtos (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/produtos` | admin | Lista (filtro `?baixo=true` para estoque baixo) |
@@ -167,7 +271,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | POST | `/api/produtos/:id/entrada` | admin | Adiciona quantidade ao estoque |
 
 ### Comissão por Serviço (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/servicos/:id/comissao` | admin | Consulta regra específica |
@@ -175,7 +278,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | DELETE | `/api/servicos/:id/comissao` | admin | Remove (volta para comissão do barbeiro) |
 
 ### PDV / Vendas (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/vendas` | admin | Lista (filtros `?data=&barbeiro=&status=&caixa=`) |
@@ -183,7 +285,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | POST | `/api/vendas` | barbeiro | Cria venda (requer caixa aberto) — itens: `tipo` (servico/produto), `referencia_id`, `quantidade`; `forma_pagamento`, `desconto_centavos`, `dinheiro_recebido` (p/ dinheiro); baixa estoque + gera comissão |
 
 ### Caixa (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/caixa/aberto` | admin | Caixa aberto do dia (ou null) |
@@ -194,7 +295,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | GET | `/api/caixa/historico` | admin | Histórico de caixas (filtro `?data=`) |
 
 ### Comissões (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/comissoes` | admin | Lista (filtros `?barbeiro=&status=&data_inicio=&data_fim=`) |
@@ -203,7 +303,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | PUT | `/api/comissoes/lote/pagar` | admin | Paga várias (`ids[]`, `observacao`) |
 
 ### Observações & Histórico do Cliente (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/clientes/:id/observacoes` | barbeiro/admin | Lista anotações do barbeiro logado |
@@ -211,7 +310,6 @@ test/api.test.js     # Testes de integração da API (35 testes)
 | GET | `/api/clientes/:id/historico` | barbeiro | Unificado: agendamentos concluídos + vendas walk-in + observações |
 
 ### Agendamentos — Concluir (Fase 3)
-
 | Método | Rota | Quem | Descrição |
 |--------|------|------|-----------|
 | PUT | `/api/agendamentos/:id/concluir` | barbeiro/admin | Marca concluído → gera comissão + entra no histórico |
@@ -231,6 +329,23 @@ test/api.test.js     # Testes de integração da API (35 testes)
 
 ---
 
+## Checklist de produção
+
+| Item | Status | Observação |
+|------|--------|------------|
+| HTTPS / TLS | ⚠️ Pendente | Use Cloudflare Tunnel ou reverse proxy (nginx/Caddy) |
+| `COOKIE_SECURE=1` | ⚠️ Pendente | Obrigatório com HTTPS |
+| Variáveis de produção | ⚠️ Pendente | `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, etc. |
+| Backup automático | ⚠️ Pendente | Configure cron/jobs no host |
+| Health check `/health` | ⚠️ Pendente | Implementar endpoint leve |
+| Logs estruturados (JSON) | ✅ Pronto | `NODE_ENV=production` ativa |
+| Rate limit login | ✅ Pronto | 5 tentativas / 15 min por IP+email |
+| CSP + headers segurança | ✅ Pronto | `X-Frame-Options`, `X-Content-Type-Options`, etc. |
+| Testes passando | ✅ Pronto | `npm test` — 35 testes |
+| Dockerfile multi-stage | ✅ Pronto | Imagem ~60MB |
+
+---
+
 ## Próximos passos sugeridos (Fase 4+)
 
 - Notificações (e-mail/WhatsApp) para confirmação/lembrete
@@ -239,4 +354,11 @@ test/api.test.js     # Testes de integração da API (35 testes)
 - Multi-unidade (filiais)
 - PWA (offline-first para barbeiros)
 - Dashboard admin com métricas (ocupação, no-show, ticket médio)
-EOF
+- Endpoint `/health` para orquestração (K8s, Docker Swarm)
+- CI/CD (GitHub Actions: test + build + deploy)
+
+---
+
+## Licença
+
+MIT — uso livre, inclusive comercial.
