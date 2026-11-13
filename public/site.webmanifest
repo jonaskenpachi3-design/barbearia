@@ -4,13 +4,49 @@
   "description": "Sistema completo de gestão para barbearia: agendamentos, PDV, comissões, estoque e assinaturas",
   "icons": [
     {
-      "src": "/favicon-192.png",
+      "src": "/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon-512.png",
+      "src": "/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -19,7 +55,110 @@
   "theme_color": "#D4A843",
   "background_color": "#1a1a1a",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "start_url": "/",
   "scope": "/",
-  "orientation": "portrait-primary"
+  "orientation": "portrait-primary",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "shortcuts": [
+    {
+      "name": "Agendar Corte",
+      "short_name": "Agendar",
+      "description": "Agendar um novo corte ou serviço",
+      "url": "/agendar.html",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Minha Agenda",
+      "short_name": "Agenda",
+      "description": "Ver meus agendamentos e histórico",
+      "url": "/cliente.html",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Caixa / PDV",
+      "short_name": "Caixa",
+      "description": "Abrir caixa e fazer vendas",
+      "url": "/admin.html#caixa",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Comissões",
+      "short_name": "Comissões",
+      "description": "Ver e pagar comissões dos barbeiros",
+      "url": "/admin.html#comissoes",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    "business",
+    "lifestyle",
+    "productivity"
+  ],
+  "screenshots": [],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "file_handlers": [
+    {
+      "action": "/agendar.html",
+      "accept": {
+        "text/calendar": [
+          ".ics"
+        ]
+      },
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ],
+  "share_target": {
+    "action": "/cliente.html",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "name",
+      "text": "notes",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+barbearia",
+      "url": "/agendar.html?%s"
+    }
+  ]
 }

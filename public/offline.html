@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline — Barbearia Andrade</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#D4A843">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #faf8f3;
+      color: #1a1f2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image: repeating-linear-gradient(45deg, rgba(196,30,58,0.02), rgba(196,30,58,0.02) 6px, transparent 6px, transparent 12px);
+    }
+    .container {
+      text-align: center;
+      max-width: 400px;
+      background: white;
+      border-radius: 16px;
+      padding: 40px 30px;
+      box-shadow: 0 4px 20px rgba(26,31,46,0.1);
+      border: 1px solid #e8e4df;
+    }
+    .icon {
+      width: 80px; height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #fdf0f1, #fef9e7);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #f5c6ca;
+    }
+    .icon svg { width: 40px; height: 40px; color: #c41e3a; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; color: #1a1f2e; }
+    p { color: #5c5242; line-height: 1.6; margin-bottom: 24px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #c41e3a, #e8455d);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(196,30,58,0.3); }
+    .btn:active { transform: translateY(0); }
+    .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(196,30,58,0.25); }
+    .details { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e8e4df; font-size: 0.875rem; color: #7d7262; }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pending-count { display: inline-block; margin-top: 12px; padding: 8px 12px; background: #fef9e7; border: 1px solid #f5e6b8; border-radius: 8px; color: #8b6900; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 1l22 22"></path>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a16 16 0 0 1 11.84-3.95"></path>
+      </svg>
+    </div>
+    <h1>Você está offline</h1>
+    <p>Não foi possível conectar ao servidor. Algumas funcionalidades podem não estar disponíveis.</p>
+    <button class="btn" id="retry-btn">
+      <svg class="spinner" id="spinner" aria-hidden="true" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round" style="animation: spin 1s linear infinite;"></circle>
+      </svg>
+      <span id="btn-text">Tentar novamente</span>
+    </button>
+    <div class="details">
+      <p>Os dados do painel do barbeiro (agenda de hoje, histórico de clientes) ficam disponíveis offline após o primeiro carregamento.</p>
+      <p>Operações como "Concluir agendamento" e "Adicionar observação" serão sincronizadas automaticamente quando a conexão voltar.</p>
+      <div class="pending-count" id="pending-count" hidden></div>
+    </div>
+  </div>
+  <script>
+    // Auto-retry when online
+    window.addEventListener('online', () => {
+      document.getElementById('btn-text').textContent = 'Conectando...';
+      document.getElementById('spinner').style.display = 'block';
+      setTimeout(() => window.location.reload(), 1000);
+    });
+
+    // Check for pending mutations in IndexedDB
+    async function checkPendingMutations() {
+      try {
+        const db = await openDB();
+        const count = await getMutationCount(db);
+        if (count > 0) {
+          const el = document.getElementById('pending-count');
+          el.textContent = count === 1
+            ? '1 operação pendente será sincronizada ao reconectar'
+            : `${count} operações pendentes serão sincronizadas ao reconectar`;
+          el.hidden = false;
+        }
+      } catch (e) {
+        console.log('[Offline] Could not check pending mutations:', e);
+      }
+    }
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('BarbeariaOffline', 1);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('mutations')) {
+            const store = db.createObjectStore('mutations', { keyPath: 'id' });
+            store.createIndex('timestamp', 'timestamp');
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function getMutationCount(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('mutations', 'readonly');
+        const store = tx.objectStore('mutations');
+        const req = store.count();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // Initial check
+    checkPendingMutations();
+
+    // Manual retry
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      document.getElementById('btn-text').textContent = 'Verificando...';
+      document.getElementById('spinner').style.display = 'block';
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>

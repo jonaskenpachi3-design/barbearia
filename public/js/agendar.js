@@ -231,7 +231,7 @@ function selecionarHorario(slot) {
   proximoPasso();
 }
 
-// Envio do agendamento
+// Envio do agendamento (offline-aware)
 async function enviarAgendamento() {
   if (!estado.cliente.nome || !estado.cliente.telefone || !estado.servico || !estado.barbeiro || !estado.data || !estado.horario) {
     toast('Complete todos os passos', true);
@@ -244,23 +244,49 @@ async function enviarAgendamento() {
   btn.textContent = 'Agendando...';
 
   try {
-    const res = await fetch(`${apiBase}/agendamentos-publico`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Use offline-aware API if available (from idb.js + app.js)
+    let result;
+    if (window.App?.offlineApi?.offlineAwareFetch) {
+      result = await window.App.offlineApi.offlineAwareFetch('POST', `${apiBase}/agendamentos-publico`, {
         nome: estado.cliente.nome,
         telefone: estado.cliente.telefone,
         barbeiro_id: estado.barbeiro.id,
         servico_id: estado.servico.id,
         inicio: `${estado.data}T${estado.horario.inicio.slice(11,16)}:00`
-      })
-    });
+      });
+    } else {
+      // Fallback to direct fetch
+      const res = await fetch(`${apiBase}/agendamentos-publico`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: estado.cliente.nome,
+          telefone: estado.cliente.telefone,
+          barbeiro_id: estado.barbeiro.id,
+          servico_id: estado.servico.id,
+          inicio: `${estado.data}T${estado.horario.inicio.slice(11,16)}:00`
+        })
+      });
+      result = await res.json();
+      if (!res.ok) throw new Error(result.erro || 'Erro ao agendar');
+    }
 
-    const dados = await res.json();
-    if (!res.ok) throw new Error(dados.erro || 'Erro ao agendar');
+    // Handle queued response
+    if (result.queued) {
+      toast('Agendamento salvo offline! Será confirmado quando conectar.', false);
+      // Still show confirmation with the data we have
+      const mockAgendamento = {
+        servico: { nome: estado.servico.nome },
+        barbeiro_nome: estado.barbeiro.nome,
+        inicio: `${estado.data}T${estado.horario.inicio.slice(11,16)}:00`,
+        codigo_cancelamento: 'OFFLINE-' + Date.now().toString(36).toUpperCase()
+      };
+      mostrarConfirmacao({ agendamento: mockAgendamento, codigo_cancelamento: mockAgendamento.codigo_cancelamento });
+      return;
+    }
 
-    // Sucesso - mostra confirmação
-    mostrarConfirmacao(dados);
+    // Normal success response
+    mostrarConfirmacao(result);
   } catch (e) {
     toast(e.message, true);
   } finally {

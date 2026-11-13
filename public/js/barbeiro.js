@@ -416,53 +416,128 @@
 
     function abrirHistoricoCliente(clienteId, clienteNome) {
       api.get(`/api/clientes/${clienteId}/historico`).then(({ agendamentos, vendas, observacoes }) => {
-        let html = `<h3>Histórico de ${clienteNome}</h3>`;
+        // Create modal for client history with option to add observation
+        const modal = document.createElement('dialog');
+        modal.className = 'history-modal';
+        modal.innerHTML = `
+          <form class="dlg" method="dialog">
+            <div class="dialog-header">
+              <h2 class="dialog-title">Histórico de ${clienteNome}</h2>
+              <button class="dialog-close" type="button" aria-label="Fechar">
+                <svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-x"/></svg>
+              </button>
+            </div>
+            <div class="dialog-body" style="max-height: 60vh; overflow-y: auto;">
+              ${buildHistoryHtml(agendamentos, vendas, observacoes)}
+              <div class="field" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+                <label for="nova-obs" class="field-label">Nova anotação</label>
+                <textarea class="input" id="nova-obs" rows="3" placeholder="Digite uma observação privada sobre este cliente..." maxlength="500"></textarea>
+              </div>
+            </div>
+            <div class="dialog-actions">
+              <button class="btn btn-line" type="button" id="btn-fechar-historico">Fechar</button>
+              <button class="btn btn-primary" type="button" id="btn-salvar-obs">Salvar anotação</button>
+            </div>
+          </form>
+        `;
 
-        if (agendamentos.length) {
-          html += '<h4><svg class="icon-svg inline-icon"><use href="icons/icons.svg#icon-scissors"/></svg> Agendamentos concluídos</h4><ul>';
-          for (const a of agendamentos) {
-            const dt = new Date(a.inicio).toLocaleDateString('pt-BR');
-            const hora = new Date(a.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            html += `<li>${dt} ${hora} — ${a.servico_nome} (${a.barbeiro_nome}) — ${brl(a.servico_preco)}</li>`;
+        document.body.appendChild(modal);
+
+        const closeBtn = modal.querySelector('.dialog-close');
+        const fecharBtn = modal.querySelector('#btn-fechar-historico');
+        const salvarBtn = modal.querySelector('#btn-salvar-obs');
+        const obsInput = modal.querySelector('#nova-obs');
+
+        const closeModal = () => {
+          modal.close();
+          modal.remove();
+        };
+
+        closeBtn?.addEventListener('click', closeModal);
+        fecharBtn?.addEventListener('click', closeModal);
+
+        salvarBtn?.addEventListener('click', async () => {
+          const conteudo = obsInput.value.trim();
+          if (!conteudo) {
+            toast('Digite o conteúdo da anotação', true);
+            return;
           }
-          html += '</ul>';
-        }
 
-        if (vendas.length) {
-          html += '<h4><svg class="icon-svg inline-icon"><use href="icons/icons.svg#icon-money"/></svg> Vendas (walk-in / produtos)</h4><ul>';
-          for (const v of vendas) {
-            const dt = new Date(v.criado_em).toLocaleDateString('pt-BR');
-            const hora = new Date(v.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            html += `<li>${dt} ${hora} — ${v.forma_pagamento} — ${brl(v.total_centavos)}`;
-            if (v.itens.length) {
-              html += '<ul>';
-              for (const item of v.itens) {
-                const icon = item.tipo === 'servico' ? 'icon-scissors' : 'icon-box';
-                html += `<li><svg class="icon-svg inline-icon"><use href="icons/icons.svg#${icon}"/></svg> ${item.referencia_nome} × ${item.quantidade} — ${brl(item.preco_unit_centavos * item.quantidade)}</li>`;
-              }
-              html += '</ul>';
-            }
-            html += '</li>';
+          salvarBtn.disabled = true;
+          salvarBtn.textContent = 'Salvando...';
+
+          try {
+            await api.post(`/api/clientes/${clienteId}/observacoes`, { conteudo });
+            toast('Anotação salva!');
+            closeModal();
+            // Refresh client list to show updated history
+            carregarClientes();
+          } catch (e) {
+            toast(e.message, true);
+          } finally {
+            salvarBtn.disabled = false;
+            salvarBtn.textContent = 'Salvar anotação';
           }
-          html += '</ul>';
-        }
+        });
 
-        if (observacoes.length) {
-          html += '<h4>📝 Anotações</h4><ul>';
-          for (const o of observacoes) {
-            const dt = new Date(o.criado_em).toLocaleDateString('pt-BR');
-            html += `<li>${dt} (${o.barbeiro_nome}): ${o.conteudo}</li>`;
-          }
-          html += '</ul>';
-        }
+        modal.showModal();
 
-        if (!agendamentos.length && !vendas.length && !observacoes.length) {
-          html += '<p class="muted">Nenhum histórico encontrado.</p>';
-        }
+        // Focus the textarea
+        setTimeout(() => obsInput?.focus(), 100);
 
-        // Abre em modal simples (alert por enquanto)
-        alert(html.replace(/<[^>]+>/g, '\n').replace(/&nbsp;/g, ' '));
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModal();
+        });
       }).catch(e => toast(e.message, true));
+    }
+
+    function buildHistoryHtml(agendamentos, vendas, observacoes) {
+      let html = '';
+
+      if (agendamentos.length) {
+        html += '<h4 style="margin-bottom: 8px; margin-top: 16px;"><svg class="icon-svg inline-icon" style="width: 18px; height: 18px;"><use href="icons/icons.svg#icon-scissors"/></svg> Agendamentos concluídos</h4><ul style="margin-bottom: 16px;">';
+        for (const a of agendamentos) {
+          const dt = new Date(a.inicio).toLocaleDateString('pt-BR');
+          const hora = new Date(a.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          html += `<li style="margin-bottom: 4px;">${dt} ${hora} — ${a.servico_nome} (${a.barbeiro_nome}) — ${brl(a.servico_preco)}</li>`;
+        }
+        html += '</ul>';
+      }
+
+      if (vendas.length) {
+        html += '<h4 style="margin-bottom: 8px; margin-top: 16px;"><svg class="icon-svg inline-icon" style="width: 18px; height: 18px;"><use href="icons/icons.svg#icon-money"/></svg> Vendas (walk-in / produtos)</h4><ul style="margin-bottom: 16px;">';
+        for (const v of vendas) {
+          const dt = new Date(v.criado_em).toLocaleDateString('pt-BR');
+          const hora = new Date(v.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          html += `<li style="margin-bottom: 4px;">${dt} ${hora} — ${v.forma_pagamento} — ${brl(v.total_centavos)}`;
+          if (v.itens.length) {
+            html += '<ul style="margin-top: 4px; margin-left: 16px; font-size: var(--text-sm); color: var(--text-secondary);">';
+            for (const item of v.itens) {
+              const icon = item.tipo === 'servico' ? 'icon-scissors' : 'icon-box';
+              html += `<li><svg class="icon-svg inline-icon" style="width: 14px; height: 14px; margin-right: 4px;"><use href="icons/icons.svg#${icon}"/></svg> ${item.referencia_nome} × ${item.quantidade} — ${brl(item.preco_unit_centavos * item.quantidade)}</li>`;
+            }
+            html += '</ul>';
+          }
+          html += '</li>';
+        }
+        html += '</ul>';
+      }
+
+      if (observacoes.length) {
+        html += '<h4 style="margin-bottom: 8px; margin-top: 16px;">📝 Anotações anteriores</h4><ul style="margin-bottom: 16px;">';
+        for (const o of observacoes) {
+          const dt = new Date(o.criado_em).toLocaleDateString('pt-BR');
+          html += `<li style="margin-bottom: 4px; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md);">${dt} (${o.barbeiro_nome}): ${o.conteudo}</li>`;
+        }
+        html += '</ul>';
+      }
+
+      if (!agendamentos.length && !vendas.length && !observacoes.length) {
+        html += '<p class="muted" style="margin-top: 16px;">Nenhum histórico encontrado.</p>';
+      }
+
+      return html;
     }
 
     $('bcl-busca').addEventListener('input', carregarClientes);

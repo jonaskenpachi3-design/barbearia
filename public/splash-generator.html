@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Splash Screens - Navalha Barbearia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      max-width: 900px;
+      width: 100%;
+    }
+    h1 {
+      color: #1a1a1a;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .subtitle {
+      color: #666;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .preview {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 24px;
+      background: #fafafa;
+      border-radius: 8px;
+    }
+    .preview-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-item canvas {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .preview-item label {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #D4A843, #B8860B);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(212, 168, 67, 0.4);
+    }
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+    .btn-download {
+      background: #1a1a1a;
+      color: white;
+    }
+    .btn-download:hover {
+      background: #333;
+    }
+    .info-box {
+      background: #fff8e1;
+      border-left: 4px solid #D4A843;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 24px;
+    }
+    .info-box h3 {
+      color: #B8860B;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+    .info-box p {
+      color: #5d4e00;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .info-box code {
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .sizes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .size-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+    .size-item canvas {
+      border-radius: 4px;
+      max-width: 100%;
+    }
+    .size-item button {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+    .size-info {
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+    }
+    .device-type {
+      font-size: 0.7rem;
+      color: #D4A843;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #D4A843, #B8860B);
+      color: white;
+    }
+    .tab-btn:hover:not(.active) {
+      background: #e0e0e0;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .success-box {
+      background: #e8f5e9;
+      border-left: 4px solid #4caf50;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 16px;
+    }
+    .success-box h3 {
+      color: #2e7d32;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+    .success-box pre {
+      background: #1a1a1a;
+      color: #d4d4d4;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 8px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #eee;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 16px 0;
+      display: none;
+    }
+    .progress-bar.visible {
+      display: block;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #D4A843, #B8860B);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .status-text {
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📱 Splash Screens Navalha Barbearia</h1>
+    <p class="subtitle">Gere splash screens para todos os dispositivos iOS e Android</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="ios">iOS (Launch Images)</button>
+      <button class="tab-btn" data-tab="android">Android (Splash)</button>
+      <button class="tab-btn" data-tab="pwa">PWA Manifest</button>
+    </div>
+
+    <!-- iOS Tab -->
+    <div class="tab-content active" id="tab-ios">
+      <div class="preview">
+        <div class="preview-item">
+          <label>iPhone 14 Pro (2556×1179)</label>
+          <canvas id="canvas-ios-1" width="2556" height="1179" style="max-width: 200px; height: auto;"></canvas>
+        </div>
+        <div class="preview-item">
+          <label>iPad Pro 12.9" (2048×2732)</label>
+          <canvas id="canvas-ios-2" width="2048" height="2732" style="max-width: 150px; height: auto;"></canvas>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" id="generateIOS">Gerar iOS Splash Screens</button>
+        <button class="btn-secondary" id="downloadIOSZip">Baixar iOS (ZIP)</button>
+      </div>
+
+      <div class="progress-bar" id="progressIOS">
+        <div class="progress-fill" id="progressFillIOS"></div>
+      </div>
+      <div class="status-text" id="statusIOS"></div>
+
+      <div class="info-box">
+        <h3>📋 Tamanhos iOS Gerados</h3>
+        <div class="sizes-grid" id="iosSizesGrid"></div>
+      </div>
+    </div>
+
+    <!-- Android Tab -->
+    <div class="tab-content" id="tab-android">
+      <div class="preview">
+        <div class="preview-item">
+          <label>Phone Portrait (1080×1920)</label>
+          <canvas id="canvas-android-1" width="1080" height="1920" style="max-width: 120px; height: auto;"></canvas>
+        </div>
+        <div class="preview-item">
+          <label>Tablet Portrait (1200×1920)</label>
+          <canvas id="canvas-android-2" width="1200" height="1920" style="max-width: 130px; height: auto;"></canvas>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" id="generateAndroid">Gerar Android Splash</button>
+        <button class="btn-secondary" id="downloadAndroidZip">Baixar Android (ZIP)</button>
+      </div>
+
+      <div class="progress-bar" id="progressAndroid">
+        <div class="progress-fill" id="progressFillAndroid"></div>
+      </div>
+      <div class="status-text" id="statusAndroid"></div>
+
+      <div class="info-box">
+        <h3>📋 Tamanhos Android Gerados</h3>
+        <div class="sizes-grid" id="androidSizesGrid"></div>
+      </div>
+    </div>
+
+    <!-- PWA Manifest Tab -->
+    <div class="tab-content" id="tab-pwa">
+      <div class="preview">
+        <div class="preview-item">
+          <label>Manifest Icons (192×192)</label>
+          <canvas id="canvas-pwa-192" width="192" height="192" style="max-width: 150px; height: auto;"></canvas>
+        </div>
+        <div class="preview-item">
+          <label>Manifest Icons (512×512)</label>
+          <canvas id="canvas-pwa-512" width="512" height="512" style="max-width: 150px; height: auto;"></canvas>
+        </div>
+        <div class="preview-item">
+          <label>Maskable (512×512)</label>
+          <canvas id="canvas-pwa-maskable" width="512" height="512" style="max-width: 150px; height: auto;"></canvas>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" id="generatePWA">Gerar PWA Assets</button>
+        <button class="btn-secondary" id="downloadPWAPackage">Baixar PWA Package (ZIP)</button>
+        <a href="favicon.svg" download="favicon.svg" class="btn-download" style="text-decoration: none; display: inline-flex; align-items: center; padding: 12px 24px;">⬇ Baixar SVG</a>
+      </div>
+
+      <div class="progress-bar" id="progressPWA">
+        <div class="progress-fill" id="progressFillPWA"></div>
+      </div>
+      <div class="status-text" id="statusPWA"></div>
+
+      <div class="success-box">
+        <h3>✅ Como usar no projeto</h3>
+        <p>Adicione no <code><head></code> de todas as páginas HTML:</p>
+        <pre><code><link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<!-- iOS Splash Screens -->
+<link rel="apple-touch-startup-image" href="/splash-iphone.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="/splash-ipad.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
+<!-- Android Splash -->
+<meta name="theme-color" content="#D4A843"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+
+    const svgUrl = 'favicon.svg';
+    const generatedIOS = {};
+    const generatedAndroid = {};
+    const generatedPWA = {};
+
+    // iOS Splash Screen sizes (portrait orientation for launch images)
+    const iosSizes = [
+      { name: 'iPhone 14/15 Pro', width: 1179, height: 2556, filename: 'splash-iphone-14-pro.png', device: 'iPhone' },
+      { name: 'iPhone 14/15 Pro Max', width: 1290, height: 2796, filename: 'splash-iphone-14-pro-max.png', device: 'iPhone' },
+      { name: 'iPhone 14/15 Plus', width: 1284, height: 2778, filename: 'splash-iphone-14-plus.png', device: 'iPhone' },
+      { name: 'iPhone 13/14', width: 1170, height: 2532, filename: 'splash-iphone-13.png', device: 'iPhone' },
+      { name: 'iPhone 12/13 Pro', width: 1170, height: 2532, filename: 'splash-iphone-12-pro.png', device: 'iPhone' },
+      { name: 'iPhone SE (3rd gen)', width: 750, height: 1334, filename: 'splash-iphone-se.png', device: 'iPhone' },
+      { name: 'iPad Pro 12.9"', width: 2048, height: 2732, filename: 'splash-ipad-pro-12.png', device: 'iPad' },
+      { name: 'iPad Pro 11"', width: 1668, height: 2388, filename: 'splash-ipad-pro-11.png', device: 'iPad' },
+      { name: 'iPad Air 10.9"', width: 1640, height: 2360, filename: 'splash-ipad-air.png', device: 'iPad' },
+      { name: 'iPad mini (6th gen)', width: 1488, height: 1920, filename: 'splash-ipad-mini.png', device: 'iPad' },
+      { name: 'iPad 10.2"', width: 1620, height: 2160, filename: 'splash-ipad-10.png', device: 'iPad' },
+    ];
+
+    // Android splash sizes (using standard densities)
+    const androidSizes = [
+      { name: 'Phone xxxhdpi', width: 1080, height: 1920, filename: 'splash-android-xxxhdpi.png', density: 'xxxhdpi' },
+      { name: 'Phone xxhdpi', width: 720, height: 1280, filename: 'splash-android-xxhdpi.png', density: 'xxhdpi' },
+      { name: 'Phone xhdpi', width: 540, height: 960, filename: 'splash-android-xhdpi.png', density: 'xhdpi' },
+      { name: 'Phone hdpi', width: 360, height: 640, filename: 'splash-android-hdpi.png', density: 'hdpi' },
+      { name: 'Tablet xxxhdpi', width: 1200, height: 1920, filename: 'splash-tablet-xxxhdpi.png', density: 'xxxhdpi' },
+      { name: 'Tablet xxhdpi', width: 800, height: 1280, filename: 'splash-tablet-xxhdpi.png', density: 'xxhdpi' },
+      { name: 'Tablet xhdpi', width: 600, height: 960, filename: 'splash-tablet-xhdpi.png', density: 'xhdpi' },
+    ];
+
+    // PWA icon sizes
+    const pwaSizes = [
+      { size: 72, filename: 'icon-72.png', purpose: 'any' },
+      { size: 96, filename: 'icon-96.png', purpose: 'any' },
+      { size: 128, filename: 'icon-128.png', purpose: 'any' },
+      { size: 144, filename: 'icon-144.png', purpose: 'any' },
+      { size: 152, filename: 'icon-152.png', purpose: 'any' },
+      { size: 192, filename: 'icon-192.png', purpose: 'any maskable' },
+      { size: 384, filename: 'icon-384.png', purpose: 'any' },
+      { size: 512, filename: 'icon-512.png', purpose: 'any maskable' },
+    ];
+
+    // Load SVG
+    const svgImg = new Image();
+    svgImg.onload = () => {
+      drawPreviews(svgImg);
+      // Auto-generate all on load
+      setTimeout(() => {
+        generateAllIOS();
+        generateAllAndroid();
+        generateAllPWA();
+      }, 100);
+    };
+    svgImg.src = svgUrl;
+
+    function drawPreviews(img) {
+      // iOS previews
+      const ctx1 = document.getElementById('canvas-ios-1').getContext('2d');
+      ctx1.drawImage(img, 0, 0, 2556, 1179);
+      const ctx2 = document.getElementById('canvas-ios-2').getContext('2d');
+      ctx2.drawImage(img, 0, 0, 2048, 2732);
+
+      // Android previews
+      const ctx3 = document.getElementById('canvas-android-1').getContext('2d');
+      ctx3.drawImage(img, 0, 0, 1080, 1920);
+      const ctx4 = document.getElementById('canvas-android-2').getContext('2d');
+      ctx4.drawImage(img, 0, 0, 1200, 1920);
+
+      // PWA previews
+      const ctx5 = document.getElementById('canvas-pwa-192').getContext('2d');
+      ctx5.drawImage(img, 0, 0, 192, 192);
+      const ctx6 = document.getElementById('canvas-pwa-512').getContext('2d');
+      ctx6.drawImage(img, 0, 0, 512, 512);
+      const ctx7 = document.getElementById('canvas-pwa-maskable').getContext('2d');
+      drawMaskableIcon(ctx7, img, 512);
+    }
+
+    function drawMaskableIcon(ctx, img, size) {
+      // Draw with safe zone (40% center area for maskable icons)
+      const safeZone = size * 0.4;
+      const padding = (size - safeZone) / 2;
+
+      // Fill background with theme color
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw icon centered in safe zone
+      ctx.drawImage(img, padding, padding, safeZone, safeZone);
+    }
+
+    function generateIcon(ctx, img, width, height, backgroundColor = '#1a1a1a') {
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, width, height);
+
+      // Calculate scaling to fit with padding
+      const padding = Math.min(width, height) * 0.1;
+      const maxW = width - padding * 2;
+      const maxH = height - padding * 2;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const x = (width - drawW) / 2;
+      const y = (height - drawH) / 2;
+
+      ctx.drawImage(img, x, y, drawW, drawH);
+    }
+
+    // ============ iOS Generation ============
+    function generateAllIOS() {
+      updateProgress('progressIOS', 'progressFillIOS', 'statusIOS', 0, 'Gerando iOS...');
+
+      const img = new Image();
+      img.onload = () => {
+        iosSizes.forEach((spec, index) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = spec.width;
+          canvas.height = spec.height;
+          const ctx = canvas.getContext('2d');
+
+          // iOS splash: fill background with theme color, center icon
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillRect(0, 0, spec.width, spec.height);
+
+          // Draw logo centered, larger for splash
+          const logoSize = Math.min(spec.width, spec.height) * 0.35;
+          const x = (spec.width - logoSize) / 2;
+          const y = (spec.height - logoSize) / 2;
+          ctx.drawImage(img, x, y, logoSize, logoSize);
+
+          // Add app name at bottom
+          ctx.fillStyle = '#D4A843';
+          ctx.font = `bold ${Math.max(24, spec.width / 40)}px Inter, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Navalha Barbearia', spec.width / 2, spec.height - spec.height * 0.15);
+
+          // Add tagline
+          ctx.fillStyle = '#fff';
+          ctx.font = `${Math.max(14, spec.width / 60)}px Inter, system-ui, sans-serif`;
+          ctx.fillText('Excelência em corte e barba', spec.width / 2, spec.height - spec.height * 0.1);
+
+          generatedIOS[spec.filename] = canvas.toDataURL('image/png');
+
+          const progress = Math.round(((index + 1) / iosSizes.length) * 100);
+          updateProgress('progressIOS', 'progressFillIOS', 'statusIOS', progress, `Gerado: ${spec.name}`);
+        });
+
+        renderSizeGrid('iosSizesGrid', iosSizes, generatedIOS, 'ios');
+        updateProgress('progressIOS', 'progressFillIOS', 'statusIOS', 100, 'iOS Splash Screens prontos!');
+      };
+      img.src = svgUrl;
+    }
+
+    // ============ Android Generation ============
+    function generateAllAndroid() {
+      updateProgress('progressAndroid', 'progressFillAndroid', 'statusAndroid', 0, 'Gerando Android...');
+
+      const img = new Image();
+      img.onload = () => {
+        androidSizes.forEach((spec, index) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = spec.width;
+          canvas.height = spec.height;
+          const ctx = canvas.getContext('2d');
+
+          // Android splash: theme background + centered logo
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillRect(0, 0, spec.width, spec.height);
+
+          const logoSize = Math.min(spec.width, spec.height) * 0.3;
+          const x = (spec.width - logoSize) / 2;
+          const y = (spec.height - logoSize) / 2;
+          ctx.drawImage(img, x, y, logoSize, logoSize);
+
+          // App name
+          ctx.fillStyle = '#D4A843';
+          ctx.font = `bold ${Math.max(20, spec.width / 45)}px Inter, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Navalha Barbearia', spec.width / 2, spec.height - spec.height * 0.2);
+
+          generatedAndroid[spec.filename] = canvas.toDataURL('image/png');
+
+          const progress = Math.round(((index + 1) / androidSizes.length) * 100);
+          updateProgress('progressAndroid', 'progressFillAndroid', 'statusAndroid', progress, `Gerado: ${spec.name}`);
+        });
+
+        renderSizeGrid('androidSizesGrid', androidSizes, generatedAndroid, 'android');
+        updateProgress('progressAndroid', 'progressFillAndroid', 'statusAndroid', 100, 'Android Splash Screens prontos!');
+      };
+      img.src = svgUrl;
+    }
+
+    // ============ PWA Generation ============
+    function generateAllPWA() {
+      updateProgress('progressPWA', 'progressFillPWA', 'statusPWA', 0, 'Gerando PWA...');
+
+      const img = new Image();
+      img.onload = () => {
+        pwaSizes.forEach((spec, index) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = spec.size;
+          canvas.height = spec.size;
+          const ctx = canvas.getContext('2d');
+
+          if (spec.purpose.includes('maskable')) {
+            drawMaskableIcon(ctx, img, spec.size);
+          } else {
+            generateIcon(ctx, img, spec.size, spec.size);
+          }
+
+          generatedPWA[spec.filename] = canvas.toDataURL('image/png');
+
+          const progress = Math.round(((index + 1) / pwaSizes.length) * 100);
+          updateProgress('progressPWA', 'progressFillPWA', 'statusPWA', progress, `Gerado: ${spec.filename}`);
+        });
+
+        // Also generate apple-touch-icon
+        const appleCanvas = document.createElement('canvas');
+        appleCanvas.width = 180;
+        appleCanvas.height = 180;
+        const appleCtx = appleCanvas.getContext('2d');
+        generateIcon(appleCtx, img, 180, 180);
+        generatedPWA['apple-touch-icon.png'] = appleCanvas.toDataURL('image/png');
+
+        // Generate favicon sizes
+        [16, 32, 48, 64].forEach(s => {
+          const c = document.createElement('canvas');
+          c.width = s; c.height = s;
+          generateIcon(c.getContext('2d'), img, s, s);
+          generatedPWA[`favicon-${s}.png`] = c.toDataURL('image/png');
+        });
+
+        renderSizeGrid('pwaSizesGrid', pwaSizes.concat(
+          [{ size: 180, filename: 'apple-touch-icon.png', purpose: 'apple' }],
+          [16, 32, 48, 64].map(s => ({ size: s, filename: `favicon-${s}.png`, purpose: 'favicon' }))
+        ), generatedPWA, 'pwa');
+
+        updateProgress('progressPWA', 'progressFillPWA', 'statusPWA', 100, 'PWA Assets prontos!');
+      };
+      img.src = svgUrl;
+    }
+
+    function updateProgress(progressId, fillId, statusId, percent, text) {
+      const bar = document.getElementById(progressId);
+      const fill = document.getElementById(fillId);
+      const status = document.getElementById(statusId);
+      bar.classList.add('visible');
+      fill.style.width = `${percent}%`;
+      status.textContent = text;
+    }
+
+    function renderSizeGrid(gridId, specs, generated, type) {
+      const grid = document.getElementById(gridId);
+      grid.innerHTML = '';
+
+      specs.forEach(spec => {
+        const div = document.createElement('div');
+        div.className = 'size-item';
+
+        const canvas = document.createElement('canvas');
+        const key = spec.filename || `icon-${spec.size}.png`;
+        const dataUrl = generated[key];
+
+        if (dataUrl) {
+          canvas.width = Math.min(spec.width || spec.size, 160);
+          canvas.height = Math.min(spec.height || spec.size, 160);
+          const ctx = canvas.getContext('2d');
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          img.src = dataUrl;
+        }
+
+        const infoDiv = document.createElement('div');
+        infoDiv.style.display = 'flex';
+        infoDiv.style.flexDirection = 'column';
+        infoDiv.style.alignItems = 'center';
+        infoDiv.style.gap = '2px';
+
+        const label = document.createElement('span');
+        label.className = 'size-info';
+        label.textContent = spec.width ? `${spec.width}×${spec.height}` : `${spec.size}×${spec.size}`;
+
+        const deviceLabel = document.createElement('span');
+        deviceLabel.className = 'device-type';
+        deviceLabel.textContent = spec.device || spec.density || spec.purpose || '';
+
+        const btn = document.createElement('button');
+        btn.className = 'btn-secondary';
+        btn.textContent = 'Baixar';
+        btn.onclick = () => downloadPNG(key, dataUrl);
+
+        infoDiv.appendChild(label);
+        if (deviceLabel.textContent) infoDiv.appendChild(deviceLabel);
+        div.appendChild(canvas);
+        div.appendChild(infoDiv);
+        div.appendChild(btn);
+        grid.appendChild(div);
+      });
+    }
+
+    function downloadPNG(filename, dataUrl) {
+      if (!dataUrl) return;
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.click();
+    }
+
+    // ZIP Downloads
+    document.getElementById('downloadIOSZip').onclick = async () => {
+      await downloadZip(generatedIOS, 'ios-splash-screens.zip', iosSizes.map(s => s.filename));
+    };
+
+    document.getElementById('downloadAndroidZip').onclick = async () => {
+      await downloadZip(generatedAndroid, 'android-splash-screens.zip', androidSizes.map(s => s.filename));
+    };
+
+    document.getElementById('downloadPWAPackage').onclick = async () => {
+      const zip = new JSZip();
+
+      // Add all PWA icons
+      for (const [filename, dataUrl] of Object.entries(generatedPWA)) {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        zip.file(filename, blob);
+      }
+
+      // Add SVG
+      const svgResp = await fetch(svgUrl);
+      const svgBlob = await svgResp.blob();
+      zip.file('favicon.svg', svgBlob);
+
+      // Generate updated manifest
+      const manifest = generateManifest();
+      zip.file('site.webmanifest', JSON.stringify(manifest, null, 2));
+
+      // Generate HTML link tags
+      const htmlLinks = generateHTMLLinks();
+      zip.file('pwa-links.html', htmlLinks);
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = 'pwa-package.zip';
+      link.click();
+    };
+
+    async function downloadZip(generated, zipName, filenames) {
+      try {
+        const zip = new JSZip();
+
+        for (const filename of filenames) {
+          const dataUrl = generated[filename];
+          if (dataUrl) {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            zip.file(filename, blob);
+          }
+        }
+
+        const content = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = zipName;
+        link.click();
+      } catch (e) {
+        console.error(e);
+        alert('Erro ao gerar ZIP. Baixe os arquivos individualmente.');
+      }
+    }
+
+    function generateManifest() {
+      return {
+        name: "Navalha Barbearia",
+        short_name: "Navalha",
+        description: "Sistema completo de gestão para barbearia: agendamentos, PDV, comissões, estoque e assinaturas",
+        icons: [
+          { src: "/icon-72.png", sizes: "72x72", type: "image/png", purpose: "any" },
+          { src: "/icon-96.png", sizes: "96x96", type: "image/png", purpose: "any" },
+          { src: "/icon-128.png", sizes: "128x128", type: "image/png", purpose: "any" },
+          { src: "/icon-144.png", sizes: "144x144", type: "image/png", purpose: "any" },
+          { src: "/icon-152.png", sizes: "152x152", type: "image/png", purpose: "any" },
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+          { src: "/icon-384.png", sizes: "384x384", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ],
+        theme_color: "#D4A843",
+        background_color: "#1a1a1a",
+        display: "standalone",
+        display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+        start_url: "/",
+        scope: "/",
+        orientation: "portrait-primary",
+        launch_handler: {
+          client_mode: "focus-existing"
+        },
+        shortcuts: [
+          {
+            name: "Agendar Corte",
+            short_name: "Agendar",
+            description: "Agendar um novo corte ou serviço",
+            url: "/agendar.html",
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Minha Agenda",
+            short_name: "Agenda",
+            description: "Ver meus agendamentos e histórico",
+            url: "/cliente.html",
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Caixa / PDV",
+            short_name: "Caixa",
+            description: "Abrir caixa e fazer vendas",
+            url: "/admin.html#caixa",
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Comissões",
+            short_name: "Comissões",
+            description: "Ver e pagar comissões dos barbeiros",
+            url: "/admin.html#comissoes",
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }]
+          }
+        ],
+        categories: ["business", "lifestyle", "productivity"],
+        screenshots: [],
+        iarc_rating_id: "",
+        prefer_related_applications: false,
+        related_applications: [],
+        edge_side_panel: {
+          preferred_width: 400
+        },
+        file_handlers: [
+          {
+            action: "/agendar.html",
+            accept: {
+              "text/calendar": [".ics"]
+            },
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+            launch_type: "single-client"
+          }
+        ],
+        share_target: {
+          action: "/cliente.html",
+          method: "GET",
+          enctype: "application/x-www-form-urlencoded",
+          params: {
+            title: "name",
+            text: "notes",
+            url: "url"
+          }
+        },
+        protocol_handlers: [
+          {
+            protocol: "web+barbearia",
+            url: "/agendar.html?%s"
+          }
+        ]
+      };
+    }
+
+    function generateHTMLLinks() {
+      return `<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#D4A843">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Navalha">
+<!-- iOS Splash Screens (add to head) -->
+<link rel="apple-touch-startup-image" href="/splash-iphone-14-pro.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="/splash-iphone-14-pro-max.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="/splash-iphone-14-plus.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="/splash-iphone-13.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="/splash-iphone-se.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="/splash-ipad-pro-12.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="/splash-ipad-pro-11.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="/splash-ipad-air.png" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="/splash-ipad-mini.png" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="/splash-ipad-10.png" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2)">
+<!-- Android Splash (via manifest + meta) -->`;
+    }
+
+    // Button handlers
+    document.getElementById('generateIOS').onclick = generateAllIOS;
+    document.getElementById('generateAndroid').onclick = generateAllAndroid;
+    document.getElementById('generatePWA').onclick = generateAllPWA;
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
