@@ -6,6 +6,7 @@
 <title>Administração · Barbearia Andrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/admin-barber-modal.css">
 </head>
 <body class="admin-page">
 <a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
@@ -276,7 +277,8 @@
 <dialog id="dlg-barbeiro" aria-labelledby="dlg-barbeiro-titulo">
   <form class="dlg" id="form-barbeiro" novalidate>
     <h2 class="display" id="dlg-barbeiro-titulo">Novo barbeiro</h2>
-    <div class="row">
+    <p class="bb-modal-subtitle">Atualize os dados, os serviços atendidos e os horários da equipe.</p>
+    <div class="row bb-form-row bb-main-row">
       <div class="field">
         <label for="bb-nome">Nome</label>
         <input class="input" id="bb-nome" maxlength="80" required>
@@ -286,7 +288,7 @@
         <input class="input" id="bb-telefone" type="tel" maxlength="20">
       </div>
     </div>
-    <div class="row">
+    <div class="row bb-form-row bb-account-row">
       <div class="field wide">
         <label for="bb-email">E-mail (login)</label>
         <input class="input" id="bb-email" type="email" maxlength="120" required>
@@ -300,18 +302,30 @@
         <input class="input" id="bb-comissao" type="number" min="0" max="100" step="1" inputmode="numeric" required>
       </div>
     </div>
-    <label class="check" id="bb-ativo-wrap"><input type="checkbox" id="bb-ativo"> Barbeiro ativo (pode entrar e receber agendamentos)</label>
+    <label class="check bb-active-toggle" id="bb-ativo-wrap">
+      <input type="checkbox" id="bb-ativo">
+      <span class="checkmark" aria-hidden="true"></span>
+      <span>Barbeiro ativo <span class="bb-active-hint">Pode entrar e receber agendamentos</span></span>
+    </label>
 
-    <div class="field">
-      <span class="label">Serviços que atende</span>
-      <div class="checks" id="bb-servicos"></div>
+    <div class="field bb-services-field">
+      <div class="bb-services-heading">
+        <div>
+          <span class="label">Serviços que atende</span>
+          <p>Selecione os serviços que este barbeiro pode realizar.</p>
+        </div>
+        <span class="bb-services-count" id="bb-servicos-resumo" aria-live="polite"></span>
+      </div>
+      <div class="bb-service-grid" id="bb-servicos"></div>
     </div>
 
     <div class="field">
-      <div class="row">
+      <div class="bb-schedule-heading">
         <span class="label">Jornada semanal</span>
-        <button class="btn btn-small btn-line" type="button" id="bb-padrao">Seg a sex, 09:00–18:00</button>
-        <button class="btn btn-small btn-line" type="button" id="bb-limpar">Limpar</button>
+        <div class="bb-schedule-actions">
+          <button class="btn btn-small btn-line" type="button" id="bb-padrao">Seg a sex, 09:00–18:00</button>
+          <button class="btn btn-small btn-line" type="button" id="bb-limpar">Limpar</button>
+        </div>
       </div>
       <div class="jornada" id="jornada"></div>
     </div>

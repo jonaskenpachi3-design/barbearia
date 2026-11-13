@@ -452,11 +452,35 @@
     $('bb-ativo-wrap').hidden = !barbeiro;
 
     const marcados = new Set(barbeiro ? barbeiro.servicos : []);
+    function atualizarResumoServicos() {
+      const inputs = [...$('bb-servicos').querySelectorAll('input[type="checkbox"]')];
+      const selecionados = inputs.filter((input) => input.checked).length;
+      $('bb-servicos-resumo').textContent = inputs.length
+        ? `${selecionados} de ${inputs.length} selecionado${selecionados === 1 ? '' : 's'}`
+        : 'Nenhum serviço cadastrado';
+    }
+
     $('bb-servicos').replaceChildren(...(estado.servicos.length
-      ? estado.servicos.map((s) => el('label', { class: 'check' },
-          el('input', { type: 'checkbox', value: String(s.id), checked: marcados.has(s.id) }),
-          s.ativo ? s.nome : `${s.nome} (inativo)`))
-      : [el('span', { class: 'muted small', text: 'Cadastre serviços primeiro.' })]));
+      ? estado.servicos.map((s) => {
+          const selecionado = marcados.has(s.id);
+          return el('label', {
+            class: `check bb-service-option${selecionado ? ' selected' : ''}`,
+          },
+          el('input', {
+            type: 'checkbox',
+            value: String(s.id),
+            checked: selecionado,
+            onchange: (evento) => {
+              evento.currentTarget.parentElement.classList.toggle('selected', evento.currentTarget.checked);
+              atualizarResumoServicos();
+            },
+          }),
+          el('span', { class: 'checkmark', 'aria-hidden': 'true' }),
+          el('span', { class: 'bb-service-name', text: s.nome }),
+          !s.ativo ? el('span', { class: 'bb-service-status', text: 'Inativo' }) : null);
+        })
+      : [el('span', { class: 'bb-services-empty', text: 'Cadastre serviços primeiro para selecioná-los.' })]));
+    atualizarResumoServicos();
 
     jornada = jornadaVazia();
     for (const h of barbeiro ? barbeiro.horarios : []) jornada[h.dia_semana].push({ inicio: h.inicio, fim: h.fim });
