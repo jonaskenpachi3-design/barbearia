@@ -1245,6 +1245,7 @@ textarea.input { min-height: 100px; resize: vertical; line-height: var(--leading
   flex-shrink: 0;
   box-shadow: var(--shadow-sm);
 }
+.kpi-icon-svg { display: block; width: 24px; height: 24px; }
 .kpi-icon-brand { background: var(--brand-bg); color: var(--brand); border: 1px solid var(--brand-border); }
 .kpi-icon-gold { background: var(--gold-bg); color: var(--gold); border: 1px solid var(--gold-border); }
 .kpi-icon-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
@@ -1326,6 +1327,19 @@ textarea.input { min-height: 100px; resize: vertical; line-height: var(--leading
   height: 3px;
   background: var(--gradient-gold);
 }
+.chart-empty-watermark {
+  position: absolute;
+  z-index: 1;
+  top: 56%;
+  left: 50%;
+  width: 104px;
+  height: 104px;
+  transform: translate(-50%, -50%);
+  color: var(--brand);
+  opacity: 0;
+  pointer-events: none;
+}
+.chart-card-empty .chart-empty-watermark { opacity: 0.08; }
 .chart-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-light); transform: translateY(-2px); }
 .chart-header {
   display: flex;
@@ -1339,7 +1353,7 @@ textarea.input { min-height: 100px; resize: vertical; line-height: var(--leading
   font: var(--font-semibold) var(--text-lg) var(--font-display);
   color: var(--text-primary);
 }
-.chart-card canvas { width: 100% !important; height: 320px !important; }
+.chart-card canvas { position: relative; z-index: 2; width: 100% !important; height: 320px !important; }
 .chart-actions { display: flex; gap: var(--space-2); }
 .chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-hairline); }
 .chart-legend-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); }
@@ -2560,6 +2574,19 @@ dialog::backdrop {
   background: var(--brand-bg);
   color: var(--brand);
   opacity: 1;
+}
+.vazio-icon svg { display: block; width: 22px; height: 22px; }
+.vazio-comissoes { position: relative; isolation: isolate; overflow: hidden; }
+.vazio-comissoes > :not(.vazio-watermark) { position: relative; z-index: 1; }
+.vazio-watermark {
+  position: absolute;
+  right: 20px;
+  bottom: 8px;
+  width: 76px;
+  height: 76px;
+  color: var(--brand);
+  opacity: 0.06;
+  pointer-events: none;
 }
 .vazio-agenda .icon { grid-row: 1 / span 2; }
 .vazio-agenda .icon svg { display: block; width: 20px; height: 20px; }

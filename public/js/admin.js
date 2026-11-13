@@ -120,14 +120,14 @@
   function atualizarKPIs(kpis) {
     const container = $('kpi-cards');
     const cards = [
-      { titulo: 'Ocupação', valor: `${kpis.ocupacao_pct}%`, cor: 'var(--accent)', icone: 'icon-chart' },
-      { titulo: 'No-show', valor: `${kpis.no_show_pct}%`, cor: 'var(--bad)', icone: 'icon-alert' },
-      { titulo: 'Ticket Médio', valor: brl(kpis.ticket_medio_centavos), cor: 'var(--ok)', icone: 'icon-percent' },
-      { titulo: 'Faturamento (30d)', valor: brl(kpis.faturamento_centavos), cor: 'var(--muted)', icone: 'icon-money' },
+      { titulo: 'Ocupação', valor: `${kpis.ocupacao_pct}%`, cor: 'var(--info)', corIcone: 'kpi-icon-info', icone: 'icon-calendar' },
+      { titulo: 'No-show', valor: `${kpis.no_show_pct}%`, cor: 'var(--error)', corIcone: 'kpi-icon-error', icone: 'icon-alert' },
+      { titulo: 'Ticket Médio', valor: brl(kpis.ticket_medio_centavos), cor: 'var(--success)', corIcone: 'kpi-icon-success', icone: 'icon-pos' },
+      { titulo: 'Faturamento (30d)', valor: brl(kpis.faturamento_centavos), cor: 'var(--gold-dark)', corIcone: 'kpi-icon-gold', icone: 'icon-money' },
     ];
 
     container.replaceChildren(...cards.map((c) => el('div', { class: 'kpi-card' },
-      el('div', { class: 'kpi-icon', style: `background: ${c.cor}20; color: ${c.cor}` },
+      el('div', { class: `kpi-icon ${c.corIcone}` },
         el('svg', { class: 'kpi-icon-svg', 'aria-hidden': 'true' }, el('use', { href: `icons/icons.svg#${c.icone}` }))
       ),
       el('div', { class: 'kpi-content' },
@@ -140,6 +140,9 @@
   function desenharGraficoBarras(canvasId, dados, { corBarra = 'var(--cor-primaria)', corTexto = 'var(--ink)', maxBarras = 30 } = {}) {
     const canvas = $(canvasId);
     if (!canvas) return;
+
+    const semDados = !dados || !dados.length;
+    canvas.parentElement.classList.toggle('chart-card-empty', semDados);
 
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -156,7 +159,7 @@
     // Limpa
     ctx.clearRect(0, 0, width, height);
 
-    if (!dados || !dados.length) {
+    if (semDados) {
       ctx.font = '14px Inter';
       ctx.fillStyle = 'var(--muted)';
       ctx.textAlign = 'center';
@@ -1342,7 +1345,10 @@
 
       if (!comissoes.length) {
         container.innerHTML = '';
-        container.append(el('div', { class: 'vazio' },
+        container.append(el('div', { class: 'vazio vazio-comissoes' },
+          el('svg', { class: 'vazio-watermark', 'aria-hidden': 'true' },
+            el('use', { href: 'icons/icons.svg#icon-money' })
+          ),
           el('span', { class: 'vazio-icon', 'aria-hidden': 'true' },
             el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-money' }))
           ),

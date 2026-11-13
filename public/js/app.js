@@ -31,12 +31,16 @@
     delete: (url) => req('DELETE', url),
   };
 
+  const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
   // el('div', { class: 'x', text: 'oi', onclick: fn }, filho1, 'texto', ...)
   function el(tag, props = {}, ...filhos) {
-    const no = document.createElement(tag);
+    const no = tag === 'svg' || tag === 'use'
+      ? document.createElementNS(SVG_NAMESPACE, tag)
+      : document.createElement(tag);
     for (const [chave, valor] of Object.entries(props)) {
       if (valor === undefined || valor === null || valor === false) continue;
-      if (chave === 'class') no.className = valor;
+      if (chave === 'class') no.setAttribute('class', valor);
       else if (chave === 'text') no.textContent = valor;
       else if (chave.startsWith('on')) no.addEventListener(chave.slice(2), valor);
       else if (valor === true) no.setAttribute(chave, '');
