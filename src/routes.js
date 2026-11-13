@@ -303,7 +303,10 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     return { ok: true };
   });
 
-  r.get('/api/auth/me', auth.exigirLogin, (ctx) => ({ usuario: ctx.usuario }));
+  r.get('/api/auth/me', auth.exigirLogin, (ctx) => {
+    ctx.res.setHeader('Cache-Control', 'no-store');
+    return { usuario: ctx.usuario };
+  });
 
   // ───────────────────────── Serviços ─────────────────────────
 

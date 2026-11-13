@@ -3,6 +3,53 @@
   const { api, el, brl, iniciais, exigir, sair, toast, DIAS, ORDEM_DIAS } = window.App;
   const $ = (id) => document.getElementById(id);
 
+  const menuBtn = $('mobile-menu-btn');
+  const sidebar = $('sidebar');
+  const sidebarOverlay = $('sidebar-overlay');
+  const menuMobile = window.matchMedia('(max-width: 1024px)');
+
+  function definirMenuAberto(aberto, devolverFoco = false) {
+    if (!menuMobile.matches) {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('visible');
+      sidebarOverlay.setAttribute('aria-hidden', 'true');
+      sidebar.removeAttribute('aria-hidden');
+      sidebar.removeAttribute('inert');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.setAttribute('aria-label', 'Abrir menu');
+      return;
+    }
+
+    sidebar.classList.toggle('open', aberto);
+    sidebarOverlay.classList.toggle('visible', aberto);
+    sidebarOverlay.setAttribute('aria-hidden', String(!aberto));
+    sidebar.setAttribute('aria-hidden', String(!aberto));
+    if (aberto) sidebar.removeAttribute('inert');
+    else sidebar.setAttribute('inert', '');
+    menuBtn.setAttribute('aria-expanded', String(aberto));
+    menuBtn.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
+    if (aberto) {
+      sidebar.querySelector('.nav-item')?.focus();
+    } else if (devolverFoco) {
+      menuBtn.focus();
+    }
+  }
+
+  menuBtn.addEventListener('click', () => {
+    definirMenuAberto(menuBtn.getAttribute('aria-expanded') !== 'true');
+  });
+  sidebarOverlay.addEventListener('click', () => definirMenuAberto(false, true));
+  sidebar.querySelectorAll('.nav-item').forEach((item) => {
+    item.addEventListener('click', () => definirMenuAberto(false, true));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && menuBtn.getAttribute('aria-expanded') === 'true') {
+      definirMenuAberto(false, true);
+    }
+  });
+  menuMobile.addEventListener('change', () => definirMenuAberto(false));
+  definirMenuAberto(false);
+
   const estado = { servicos: [], barbeiros: [], produtos: [], planos: [], clientes: [] };
 
   // ───────────── utilidades ─────────────

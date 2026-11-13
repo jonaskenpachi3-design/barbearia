@@ -20,7 +20,7 @@
 
 'use strict';
 
-const SW_VERSION = '1.0.1';
+const SW_VERSION = '1.0.3';
 const CACHE_PREFIX = 'barbearia';
 const CACHE_STATIC = `${CACHE_PREFIX}-static-v${SW_VERSION}`;
 const CACHE_API = `${CACHE_PREFIX}-api-v${SW_VERSION}`;
@@ -72,7 +72,6 @@ const API_CACHE_PATTERNS = [
   /^\/api\/servicos$/,
   /^\/api\/comissoes/,
   /^\/api\/vendas\?status=concluida$/,
-  /^\/api\/auth\/me$/,
 ];
 
 // API endpoints that are mutations (POST/PUT/DELETE) - queue for background sync
@@ -265,6 +264,18 @@ async function handleHtmlRequest(request) {
 // ============================================================
 async function handleApiRequest(request) {
   const url = new URL(request.url);
+  if (url.pathname === '/api/auth/me') {
+    try {
+      return await fetch(request, { cache: 'no-store' });
+    } catch (error) {
+      console.log('[SW] Auth check unavailable:', error);
+      return new Response(
+        JSON.stringify({ erro: 'Não foi possível verificar a sessão.', offline: true }),
+        { status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+      );
+    }
+  }
+
   const cache = await caches.open(CACHE_API);
 
   // Check if this is a barbeiro-priority endpoint (offline-first)

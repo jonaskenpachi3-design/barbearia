@@ -20,7 +20,7 @@ test.before(async () => {
 
 test.after(() => servidor.close());
 
-// Pequeno cliente: devolve { status, corpo, cookie }.
+// Pequeno cliente: devolve status, corpo, cookie e cache-control.
 async function chamar(metodo, url, corpo, cookie) {
   const headers = { 'Content-Type': 'application/json' };
   if (cookie) headers.Cookie = cookie;
@@ -35,6 +35,7 @@ async function chamar(metodo, url, corpo, cookie) {
     status: resp.status,
     corpo: texto ? JSON.parse(texto) : null,
     cookie: setCookie ? setCookie.split(';')[0] : null,
+    cacheControl: resp.headers.get('cache-control'),
   };
 }
 
@@ -112,6 +113,9 @@ test('login: erra com 401, acerta com 200 e logout derruba a sessão', async () 
   assert.equal((await chamar('POST', '/api/auth/login', { email: 'nao@existe.com', senha: 'qualquer123' })).status, 401);
   const ok = await chamar('POST', '/api/auth/login', { email: 'rafael@email.com', senha: 'minhasenha1' });
   assert.equal(ok.status, 200);
+  const me = await chamar('GET', '/api/auth/me', undefined, ok.cookie);
+  assert.equal(me.status, 200);
+  assert.equal(me.cacheControl, 'no-store');
   assert.equal((await chamar('POST', '/api/auth/logout', {}, ok.cookie)).status, 200);
   assert.equal((await chamar('GET', '/api/auth/me', undefined, ok.cookie)).status, 401);
 });
