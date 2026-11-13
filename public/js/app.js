@@ -252,7 +252,7 @@
 
       if (pendingCount > 0) {
         networkIndicator.innerHTML += `
-          <span style="background: white; color: #1a7f37; padding: 2px 6px; border-radius: 10px; font-size: 11px;">
+          <span style="background: #f0d98a; color: #111111; padding: 2px 6px; border-radius: 10px; font-size: 11px;">
             ${pendingCount} pendente${pendingCount > 1 ? 's' : ''}
           </span>
         `;
@@ -274,7 +274,7 @@
 
       if (pendingCount > 0) {
         networkIndicator.innerHTML += `
-          <span style="background: white; color: #c41e3a; padding: 2px 6px; border-radius: 10px; font-size: 11px;">
+          <span style="background: #f0d98a; color: #111111; padding: 2px 6px; border-radius: 10px; font-size: 11px;">
             ${pendingCount} em fila
           </span>
         `;

@@ -20,7 +20,7 @@
 
 'use strict';
 
-const SW_VERSION = '1.0.3';
+const SW_VERSION = '1.0.8';
 const CACHE_PREFIX = 'barbearia';
 const CACHE_STATIC = `${CACHE_PREFIX}-static-v${SW_VERSION}`;
 const CACHE_API = `${CACHE_PREFIX}-api-v${SW_VERSION}`;
@@ -773,8 +773,8 @@ async function createOfflinePage() {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', system-ui, sans-serif;
-      background: #faf8f3;
-      color: #1a1f2e;
+      background: #0b0b0b;
+      color: #f4eedf;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -784,38 +784,38 @@ async function createOfflinePage() {
     .container {
       text-align: center;
       max-width: 400px;
-      background: white;
+      background: #171717;
       border-radius: 16px;
       padding: 40px 30px;
-      box-shadow: 0 4px 20px rgba(26,31,46,0.1);
-      border: 1px solid #e8e4df;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.42);
+      border: 1px solid #353535;
     }
     .icon {
       width: 80px; height: 80px;
       margin: 0 auto 24px;
-      background: linear-gradient(135deg, #fdf0f1, #fef9e7);
+      background: rgba(212, 168, 67, 0.12);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      border: 2px solid #f5c6ca;
+      border: 2px solid rgba(212, 168, 67, 0.38);
     }
-    .icon svg { width: 40px; height: 40px; color: #c41e3a; }
-    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; color: #1a1f2e; }
-    p { color: #5c5242; line-height: 1.6; margin-bottom: 24px; }
+    .icon svg { width: 40px; height: 40px; color: #f0d98a; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; color: #f4eedf; }
+    p { color: #c6beaf; line-height: 1.6; margin-bottom: 24px; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 12px 24px;
-      background: linear-gradient(135deg, #c41e3a, #e8455d);
-      color: white;
+      background: linear-gradient(135deg, #d4a843, #f0d98a);
+      color: #111111;
       border: none;
       border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
     }
-    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(196,30,58,0.3); }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212,168,67,0.24); }
     .btn:active { transform: translateY(0); }
-    .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(196,30,58,0.25); }
-    .details { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e8e4df; font-size: 0.875rem; color: #7d7262; }
+    .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(212,168,67,0.32); }
+    .details { margin-top: 20px; padding-top: 20px; border-top: 1px solid #353535; font-size: 0.875rem; color: #aaa394; }
   </style>
 </head>
 <body>

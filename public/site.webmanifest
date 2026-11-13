@@ -53,7 +53,7 @@
     }
   ],
   "theme_color": "#D4A843",
-  "background_color": "#1a1a1a",
+  "background_color": "#0b0b0b",
   "display": "standalone",
   "display_override": [
     "window-controls-overlay",

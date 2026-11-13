@@ -10,7 +10,7 @@
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(ellipse at 92% 10%, rgba(196, 30, 58, 0.09), transparent 38%),
+    radial-gradient(ellipse at 92% 10%, rgba(212, 168, 67, 0.11), transparent 38%),
     linear-gradient(120deg, var(--white), var(--cream));
 }
 
@@ -20,7 +20,7 @@
   bottom: -34px;
   width: 120px;
   height: 120px;
-  border: 1px solid rgba(196, 30, 58, 0.12);
+  border: 1px solid rgba(212, 168, 67, 0.14);
   border-radius: 50%;
   content: "";
   pointer-events: none;

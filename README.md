@@ -166,7 +166,7 @@ rm -f data/barbearia.db-shm data/barbearia.db-wal
 npm test
 ```
 
-**35 testes** cobrendo:
+**46 testes** cobrendo:
 - Auth: cadastro, login, logout, rate limit (5 tentativas = 429), sessão, permissões
 - Serviços: CRUD admin, validações, visão pública só ativos
 - Barbeiros: cadastro, jornada, validações (sobreposição, formato, dia inválido), desativação
@@ -201,17 +201,23 @@ public/              # Telas (HTML/CSS/JS puro, sem innerHTML)
   cliente.html       # Área do cliente (5 abas)
   barbeiro.html      # Área do barbeiro (5 abas)
   admin.html         # Admin: abas Serviços, Barbeiros, Agenda, Bloqueios, Produtos, Caixa, Comissões, Clientes
-  js/app.js          # Auth, navegação, utilitários compartilhados
+  js/app.js          # Auth, navegação, utilitários, Network Status Indicator, Offline-Aware API Client
   js/cliente.js      # Lógica UI cliente (agendar, minha agenda, planos, serviços, barbeiros)
   js/barbeiro.js     # Lógica UI barbeiro (agenda, jornada, serviços, comissões, clientes)
   js/admin.js        # Lógica UI admin (Fase 3: produtos, caixa, pdv, comissões)
   js/agendar.js      # Agendamento público passo-a-passo
+  js/idb.js          # IndexedDB wrapper (fila mutações offline, background sync)
+  js/install-prompt.js  # Prompt instalação PWA (banner, botão, iOS/Android)
+  js/date-picker.js  # Seletor de data acessível
   css/app.css        # Design system (cores, tipografia, componentes)
   favicon.svg        # Favicon vetorial principal
   favicon-generator.html  # Gerador PNG via canvas + JSZip
-  site.webmanifest   # PWA manifest
+  splash-generator.html # Gerador splash screens iOS/Android + ícones PWA
+  site.webmanifest   # PWA manifest (shortcuts, share_target, file_handlers, protocol_handlers)
+  sw.js              # Service Worker (Cache First, Network First, SWR, Background Sync, Push)
+  offline.html       # Página fallback offline com contador mutações pendentes
   icons/icons.svg    # Sprite de ícones (tesoura, calendário, usuário, etc.)
-test/api.test.js     # Testes de integração da API (35 testes)
+test/api.test.js     # Testes de integração da API (46 testes)
 data/                # SQLite database (gitignored)
 ```
 
@@ -323,7 +329,7 @@ data/                # SQLite database (gitignored)
 - **Escrita na API**: exige `Content-Type: application/json` (anti-CSRF)
 - **SQL**: consultas 100% parametrizadas
 - **Frontend**: DOM via `textContent` (sem `innerHTML` = sem XSS)
-- **CSP**: restritiva (`default-src 'self'`, scripts/styles inline permitidos só via nonce/hash)
+- **CSP**: restritiva (`default-src 'self'`), permite `connect-src` para Google Fonts e Mercado Pago, `font-src` `fonts.gstatic.com`, `img-src` `data:` e fontes
 - **Path traversal**: bloqueado no servidor de estáticos
 - **RBAC**: verificado no servidor em **toda** rota (UI apenas reflete)
 
@@ -341,7 +347,7 @@ data/                # SQLite database (gitignored)
 | Logs estruturados (JSON) | ✅ Pronto | `NODE_ENV=production` ativa |
 | Rate limit login | ✅ Pronto | 5 tentativas / 15 min por IP+email |
 | CSP + headers segurança | ✅ Pronto | `X-Frame-Options`, `X-Content-Type-Options`, etc. |
-| Testes passando | ✅ Pronto | `npm test` — 35 testes |
+| Testes passando | ✅ Pronto | `npm test` — 46 testes |
 | Dockerfile multi-stage | ✅ Pronto | Imagem ~60MB |
 
 ---
@@ -352,10 +358,34 @@ data/                # SQLite database (gitignored)
 - Relatório financeiro avançado (faturamento por serviço/período, ticket médio)
 - Recorrência de agendamentos (semanal/quinzenal)
 - Multi-unidade (filiais)
-- PWA (offline-first para barbeiros)
 - Dashboard admin com métricas (ocupação, no-show, ticket médio)
 - Endpoint `/health` para orquestração (K8s, Docker Swarm)
 - CI/CD (GitHub Actions: test + build + deploy)
+
+---
+
+## PWA (Implementado ✅)
+
+O sistema é um **PWA completo instalável sem Play Store**:
+
+| Funcionalidade | Arquivo | Descrição |
+|----------------|---------|-----------|
+| **Service Worker** | `public/sw.js` | Cache First (estáticos), Network First (HTML), Stale-While-Revalidate (APIs barbeiro), Background Sync (mutações), Push skeleton |
+| **Suporte Offline** | `public/offline.html`, `public/js/idb.js` | Fallback offline, fila mutações IndexedDB, sync automático ao voltar online |
+| **Prompt Instalação** | `public/js/install-prompt.js` | Banner customizado, botão flutuante, instruções iOS/Android, detecção `beforeinstallprompt` |
+| **Splash Screens** | `public/splash-generator.html` | Gera splash screens iOS (10 tamanhos), Android (8 tamanhos), ícones PWA (72-512px maskable) |
+| **Manifest** | `public/site.webmanifest` | `display_override`, shortcuts (4), `share_target`, `file_handlers`, `protocol_handlers`, categories |
+| **Indicador Rede** | `public/js/app.js` | Badge fixo inferior dir. (verde/vermelho), contador mutações pendentes |
+| **API Offline-Aware** | `public/js/app.js` | GET usa rede (SW cacheia), POST/PUT/DELETE enfileiram offline, toast "enfileirado" |
+
+### Gerar ícones PWA (necessário para instalação)
+
+1. Abra `public/splash-generator.html` no navegador
+2. Abas **PWA Icons** → clique **Gerar ícones PWA** → baixe ZIP → extraia `icon-*.png` em `public/`
+3. Aba **iOS Splash** → gere splash screens para iPhone/iPad
+4. Aba **Android Splash** → gere splash screens Android
+
+Após gerar, o app passa no **Lighthouse PWA audit** e pode ser instalado via "Adicionar à tela inicial" (Android/Chrome) ou "Compartilhar → Adicionar à Tela de Início" (iOS/Safari).
 
 ---
 
