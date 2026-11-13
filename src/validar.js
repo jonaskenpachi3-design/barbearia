@@ -1,5 +1,7 @@
 'use strict';
 const { ErroHttp } = require('./http');
+const { normalizarTelefone, formatarTelefoneBR, validarTelefoneBR } = require('./telefone');
+const { validarCPF, validarCNPJ, formatarCPF, formatarCNPJ, validarDocumento } = require('./documento');
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -33,8 +35,37 @@ function senha(valor) {
 function telefone(valor) {
   const t = texto(valor, 'o telefone', { opcional: true, max: 20 });
   if (t === null) return null;
-  if (!/^[0-9()+\-\s]{8,20}$/.test(t)) throw new ErroHttp(400, 'Telefone inválido.');
-  return t;
+  const normalizado = normalizarTelefone(t);
+  if (!normalizado) throw new ErroHttp(400, 'Telefone inválido. Use formato (DDD) 99999-9999.');
+  return normalizado; // Retorna no formato E.164 (+5511999999999)
+}
+
+function telefoneBR(valor) {
+  const t = telefone(valor);
+  if (t === null) return null;
+  return formatarTelefoneBR(t); // Retorna formatado para exibição (11) 99999-9999
+}
+
+function cpf(valor) {
+  const c = texto(valor, 'o CPF', { max: 14, opcional: true });
+  if (c === null) return null;
+  if (!validarCPF(c)) throw new ErroHttp(400, 'CPF inválido.');
+  return formatarCPF(c);
+}
+
+function cnpj(valor) {
+  const c = texto(valor, 'o CNPJ', { max: 18, opcional: true });
+  if (c === null) return null;
+  if (!validarCNPJ(c)) throw new ErroHttp(400, 'CNPJ inválido.');
+  return formatarCNPJ(c);
+}
+
+function documento(valor) {
+  const d = texto(valor, 'o documento (CPF/CNPJ)', { opcional: true });
+  if (d === null) return null;
+  const resultado = validarDocumento(d);
+  if (!resultado.valido) throw new ErroHttp(400, 'CPF ou CNPJ inválido.');
+  return resultado.formatado;
 }
 
 function inteiro(valor, campo, { min = 0, max = 1_000_000 } = {}) {
@@ -242,7 +273,7 @@ function cancelamentoPublicoDados(valor) {
 }
 
 module.exports = {
-  texto, email, senha, telefone, inteiro, booleano, idDaUrl, listaDeIds, jornada,
+  texto, email, senha, telefone, telefoneBR, cpf, cnpj, documento, inteiro, booleano, idDaUrl, listaDeIds, jornada,
   dataISO, dataHoraISO, statusAgendamento, bloqueioDados, paraMinutos,
   // Fase 3
   formaPagamento, produtoDados, servicoComissaoDados, vendaDados, vendaItemDados,

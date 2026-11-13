@@ -185,6 +185,67 @@ function agendamentoParaJson(a, incluirRelacoes = false) {
   };
 }
 
+/**
+ * Verifica se o cliente tem uma assinatura ativa com o benefício especificado.
+ * @param {Object} db - Database connection
+ * @param {number} clienteId - ID do cliente
+ * @param {string} beneficio - Nome do benefício a verificar (ex: 'agendamento_prioritario', 'desconto_servicos', 'produtos_inclusos')
+ * @returns {Object|null} Retorna a assinatura com plano se tiver o benefício, null caso contrário
+ */
+function verificarBeneficioPlano(db, clienteId, beneficio) {
+  const assinatura = db.prepare(`
+    SELECT a.*, p.beneficios as plano_beneficios
+    FROM assinaturas a
+    JOIN planos p ON p.id = a.plano_id
+    WHERE a.cliente_id = ? AND a.status IN ('ativa', 'pendente')
+    ORDER BY a.criado_em DESC LIMIT 1
+  `).get(clienteId);
+
+  if (!assinatura) return null;
+
+  const beneficios = assinatura.plano_beneficios ? JSON.parse(assinatura.plano_beneficios) : [];
+  if (!beneficios.includes(beneficio)) return null;
+
+  return assinatura;
+}
+
+/**
+ * Obtém o desconto percentual do plano do cliente (se houver benefício 'desconto_servicos' ou 'desconto_produtos')
+ * @param {Object} db - Database connection
+ * @param {number} clienteId - ID do cliente
+ * @param {string} tipo - 'servicos' ou 'produtos'
+ * @returns {number} Percentual de desconto (0-100), 0 se não tiver benefício
+ */
+function obterDescontoPlano(db, clienteId, tipo) {
+  const assinatura = db.prepare(`
+    SELECT a.*, p.beneficios as plano_beneficios
+    FROM assinaturas a
+    JOIN planos p ON p.id = a.plano_id
+    WHERE a.cliente_id = ? AND a.status IN ('ativa', 'pendente')
+    ORDER BY a.criado_em DESC LIMIT 1
+  `).get(clienteId);
+
+  if (!assinatura) return 0;
+
+  const beneficios = assinatura.plano_beneficios ? JSON.parse(assinatura.plano_beneficios) : [];
+  const beneficioChave = tipo === 'servicos' ? 'desconto_servicos' : 'desconto_produtos';
+
+  if (!beneficios.includes(beneficioChave)) return 0;
+
+  // O benefício pode ser um objeto com percentual: { desconto_servicos: { percentual: 20 } }
+  // ou apenas string 'desconto_servicos' (assume 10% padrão)
+  const beneficioObj = typeof assinatura.plano_beneficios === 'string'
+    ? JSON.parse(assinatura.plano_beneficios).find(b => typeof b === 'object' && b[beneficioChave])
+    : null;
+
+  if (beneficioObj && beneficioObj[beneficioChave] && typeof beneficioObj[beneficioChave].percentual === 'number') {
+    return Math.min(100, Math.max(0, beneficioObj[beneficioChave].percentual));
+  }
+
+  // Desconto padrão de 10% se o benefício existir mas não tiver percentual definido
+  return 10;
+}
+
 function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
   const r = new Roteador();
   const soAdmin = auth.exigirPapel('admin');
@@ -207,6 +268,10 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     } catch (erro) {
       if (ehDuplicado(erro)) throw new ErroHttp(409, 'Este e-mail já está cadastrado.');
       throw erro;
+    }
+    // Sync com clientes_simples (apenas se telefone fornecido)
+    if (telefone) {
+      db.prepare('INSERT OR REPLACE INTO clientes_simples (nome, telefone) VALUES (?, ?)').run(nome, telefone);
     }
     ctx.res.setHeader('Set-Cookie', auth.cookieSessao(auth.criarSessao(db, Number(id))));
     ctx.status = 201;
@@ -423,15 +488,18 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     );
     if (!dentroJornada) throw new ErroHttp(400, 'Horário fora da jornada do barbeiro.');
 
+    // Verifica benefício do plano: agendamento_prioritario
+    const temPrioridade = verificarBeneficioPlano(db, ctx.usuario.id, 'agendamento_prioritario');
+
     // Verifica conflitos com agendamentos existentes
     const conflito = db.prepare(`
       SELECT 1 FROM agendamentos
       WHERE barbeiro_id = ? AND status IN ('pendente','confirmado')
         AND inicio < ? AND fim > ?
     `).get(barbeiroId, fimISO, inicio);
-    if (conflito) throw new ErroHttp(409, 'Horário não disponível (conflito com outro agendamento).');
+    if (conflito && !temPrioridade) throw new ErroHttp(409, 'Horário não disponível (conflito com outro agendamento).');
 
-    // Verifica bloqueios
+    // Verifica bloqueios (admin bloqueios sempre valem, mesmo com prioridade)
     const bloqueio = db.prepare(`
       SELECT 1 FROM bloqueios
       WHERE (barbeiro_id = ? OR barbeiro_id IS NULL)
@@ -496,22 +564,6 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     );
     if (!dentroJornada) throw new ErroHttp(400, 'Horário fora da jornada do barbeiro.');
 
-    // Verifica conflitos
-    const conflito = db.prepare(`
-      SELECT 1 FROM agendamentos
-      WHERE barbeiro_id = ? AND status IN ('pendente','confirmado')
-        AND inicio < ? AND fim > ?
-    `).get(barbeiro_id, fimISO, inicio);
-    if (conflito) throw new ErroHttp(409, 'Horário não disponível (conflito com outro agendamento).');
-
-    // Verifica bloqueios
-    const bloqueio = db.prepare(`
-      SELECT 1 FROM bloqueios
-      WHERE (barbeiro_id = ? OR barbeiro_id IS NULL)
-        AND inicio < ? AND fim > ?
-    `).get(barbeiro_id, fimISO, inicio);
-    if (bloqueio) throw new ErroHttp(409, 'Horário bloqueado pelo administrador.');
-
     // Busca ou cria usuário cliente (para integridade com FK agendamentos.cliente_id -> usuarios)
     let usuario = db.prepare('SELECT id FROM usuarios WHERE telefone = ? AND papel = \'cliente\'').get(telefone);
     if (!usuario) {
@@ -522,8 +574,29 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       usuario = { id: result.lastInsertRowid };
     }
 
-    // Também registra em clientes_simples para busca por telefone
-    db.prepare('INSERT OR IGNORE INTO clientes_simples (nome, telefone) VALUES (?, ?)').run(nome, telefone);
+    // Verifica benefício do plano: agendamento_prioritario (se o usuário já tem conta)
+    const temPrioridade = verificarBeneficioPlano(db, usuario.id, 'agendamento_prioritario');
+
+    // Verifica conflitos
+    const conflito = db.prepare(`
+      SELECT 1 FROM agendamentos
+      WHERE barbeiro_id = ? AND status IN ('pendente','confirmado')
+        AND inicio < ? AND fim > ?
+    `).get(barbeiro_id, fimISO, inicio);
+    if (conflito && !temPrioridade) throw new ErroHttp(409, 'Horário não disponível (conflito com outro agendamento).');
+
+    // Verifica bloqueios (admin bloqueios sempre valem, mesmo com prioridade)
+    const bloqueio = db.prepare(`
+      SELECT 1 FROM bloqueios
+      WHERE (barbeiro_id = ? OR barbeiro_id IS NULL)
+        AND inicio < ? AND fim > ?
+    `).get(barbeiro_id, fimISO, inicio);
+    if (bloqueio) throw new ErroHttp(409, 'Horário bloqueado pelo administrador.');
+
+    // Também registra/atualiza em clientes_simples para busca por telefone (sync)
+    if (telefone) {
+      db.prepare('INSERT OR REPLACE INTO clientes_simples (nome, telefone) VALUES (?, ?)').run(nome, telefone);
+    }
 
     // Gera código de cancelamento (6 dígitos)
     const codigoCancelamento = String(Math.floor(100000 + Math.random() * 900000));
@@ -1133,6 +1206,14 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     const dados = v.vendaDados(ctx.body);
     if (dados.barbeiro_id !== barbeiroId) throw new ErroHttp(403, 'Você só pode registrar vendas para si mesmo.');
 
+    // Verifica benefícios do plano do cliente (se houver cliente_id)
+    let descontoServicosPct = 0;
+    let descontoProdutosPct = 0;
+    if (dados.cliente_id) {
+      descontoServicosPct = obterDescontoPlano(db, dados.cliente_id, 'servicos');
+      descontoProdutosPct = obterDescontoPlano(db, dados.cliente_id, 'produtos');
+    }
+
     // Validar itens e calcular totais
     let subtotal = 0;
     const itensProcessados = [];
@@ -1141,18 +1222,26 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       const itemVal = v.vendaItemDados(item);
       let precoUnit = 0;
       let referenciaNome = '';
+      let descontoItemPct = 0;
 
       if (itemVal.tipo === 'servico') {
         const s = db.prepare('SELECT id, nome, preco_centavos, duracao_min FROM servicos WHERE id = ? AND ativo = 1').get(itemVal.referencia_id);
         if (!s) throw new ErroHttp(404, `Serviço ${itemVal.referencia_id} não encontrado ou inativo.`);
         precoUnit = s.preco_centavos;
         referenciaNome = s.nome;
+        descontoItemPct = descontoServicosPct;
       } else {
         const p = db.prepare('SELECT id, nome, preco_centavos, quantidade FROM produtos WHERE id = ? AND ativo = 1').get(itemVal.referencia_id);
         if (!p) throw new ErroHttp(404, `Produto ${itemVal.referencia_id} não encontrado ou inativo.`);
         if (p.quantidade < itemVal.quantidade) throw new ErroHttp(400, `Estoque insuficiente para ${p.nome}. Disponível: ${p.quantidade}`);
         precoUnit = p.preco_centavos;
         referenciaNome = p.nome;
+        descontoItemPct = descontoProdutosPct;
+      }
+
+      // Aplica desconto do plano se houver
+      if (descontoItemPct > 0) {
+        precoUnit = Math.round(precoUnit * (100 - descontoItemPct) / 100);
       }
 
       const comissaoCentavos = calcularComissaoItem(db, barbeiroId, itemVal.tipo, itemVal.referencia_id, precoUnit, itemVal.quantidade);
@@ -2005,8 +2094,21 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     const signature = ctx.req.headers['x-signature'] || ctx.req.headers['x-mp-signature'];
     const payload = ctx.body;
 
+    // Idempotency: usa o ID do evento do Mercado Pago (data.id) ou hash do payload
+    const eventoId = payload?.data?.id || payload?.id || require('node:crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 32);
+
+    // Verifica se já processamos este evento
+    const jaProcessado = db.prepare('SELECT 1 FROM webhook_eventos WHERE evento_id = ? AND gateway = ?').get(eventoId, gateway.gateway);
+    if (jaProcessado) {
+      return { received: true, duplicado: true };
+    }
+
     try {
       const evento = await gateway.processarWebhook(payload, signature);
+
+      // Registra o evento como processado (antes de processar para evitar race conditions)
+      db.prepare('INSERT OR IGNORE INTO webhook_eventos (evento_id, gateway, tipo, payload, processado_em) VALUES (?, ?, ?, ?, datetime(\'now\'))')
+        .run(eventoId, gateway.gateway, evento.tipo, JSON.stringify(payload));
 
       switch (evento.tipo) {
         case 'pagamento_aprovado': {

@@ -2,7 +2,8 @@
 const { randomBytes, createHash } = require('node:crypto');
 const { ErroHttp } = require('./http');
 
-const DURACAO_SESSAO_S = 7 * 24 * 60 * 60; // 7 dias
+const DURACAO_SESSAO_S = 7 * 24 * 60 * 60; // 7 dias (máximo absoluto)
+const INATIVIDADE_SESSAO_S = 30 * 60; // 30 minutos de inatividade
 const agoraS = () => Math.floor(Date.now() / 1000);
 
 // Só o hash do token fica no banco: um vazamento do banco não entrega sessões válidas.
@@ -12,19 +13,67 @@ function criarSessao(db, usuarioId) {
   const token = randomBytes(32).toString('hex');
   db.prepare('INSERT INTO sessoes (token_hash, usuario_id, expira_em) VALUES (?, ?, ?)')
     .run(hashToken(token), usuarioId, agoraS() + DURACAO_SESSAO_S);
+  // Atualiza ultimo_acesso do usuário
+  db.prepare("UPDATE usuarios SET ultimo_acesso = datetime('now') WHERE id = ?").run(usuarioId);
   return token;
 }
 
 function usuarioDaSessao(db, token) {
   if (!token) return null;
-  return db.prepare(`
-    SELECT u.id, u.nome, u.email, u.telefone, u.papel
+  const tokenHash = hashToken(token);
+  const sessao = db.prepare(`
+    SELECT s.usuario_id, s.expira_em, u.id, u.nome, u.email, u.telefone, u.papel, u.ativo
       FROM sessoes s JOIN usuarios u ON u.id = s.usuario_id
-     WHERE s.token_hash = ? AND s.expira_em > ? AND u.ativo = 1
-  `).get(hashToken(token), agoraS()) || null;
+     WHERE s.token_hash = ? AND u.ativo = 1
+  `).get(tokenHash);
+
+  if (!sessao) return null;
+
+  const agora = agoraS();
+
+  // Verifica expiração absoluta (7 dias)
+  if (sessao.expira_em <= agora) {
+    db.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(tokenHash);
+    return null;
+  }
+
+  // Verifica inatividade (30 min) - sliding window
+  const tempoInativo = agora - sessao.expira_em + DURACAO_SESSAO_S; // expira_em = criado + DURACAO
+  // Melhor: verificar ultimo_acesso do usuário
+  const usuario = db.prepare("SELECT ultimo_acesso FROM usuarios WHERE id = ?").get(sessao.usuario_id);
+  if (usuario) {
+    const ultimoAcesso = Math.floor(new Date(usuario.ultimo_acesso).getTime() / 1000);
+    if (agora - ultimoAcesso > INATIVIDADE_SESSAO_S) {
+      db.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(tokenHash);
+      return null;
+    }
+    // Atualiza ultimo_acesso (sliding window)
+    db.prepare("UPDATE usuarios SET ultimo_acesso = datetime('now') WHERE id = ?").run(sessao.usuario_id);
+    // Também estende a expiração da sessão se ainda tiver tempo
+    const novaExpira = agora + DURACAO_SESSAO_S;
+    if (novaExpira > sessao.expira_em) {
+      db.prepare('UPDATE sessoes SET expira_em = ? WHERE token_hash = ?').run(novaExpira, tokenHash);
+    }
+  }
+
+  return { id: sessao.id, nome: sessao.nome, email: sessao.email, telefone: sessao.telefone, papel: sessao.papel };
 }
 
 function encerrarSessao(db, token) {
+  if (token) db.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(hashToken(token));
+}
+
+/**
+ * Revoga TODAS as sessões de um usuário (logout global / segurança)
+ */
+function revogarTodasSessoes(db, usuarioId) {
+  db.prepare('DELETE FROM sessoes WHERE usuario_id = ?').run(usuarioId);
+}
+
+/**
+ * Revoga uma sessão específica por token
+ */
+function revogarSessao(db, token) {
   if (token) db.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(hashToken(token));
 }
 
@@ -87,4 +136,5 @@ function exigirPapel(...papeis) {
 module.exports = {
   criarSessao, usuarioDaSessao, encerrarSessao, limparSessoesExpiradas,
   cookieSessao, cookieLimpo, LimitadorLogin, exigirLogin, exigirPapel,
+  revogarTodasSessoes, revogarSessao,
 };

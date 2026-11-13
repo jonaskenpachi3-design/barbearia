@@ -5,21 +5,76 @@
 
   $('sair').addEventListener('click', sair);
 
+  const menuBtn = $('mobile-menu-btn');
+  const sidebar = $('sidebar');
+  const sidebarOverlay = $('sidebar-overlay');
+  const menuMobile = window.matchMedia('(max-width: 1024px)');
+  const sidebarTabs = sidebar.querySelectorAll('[data-tab-index]');
+  const tituloPagina = $('titulo-pagina');
+  const tabTitulos = ['Agenda de hoje', 'Minha jornada', 'Meus serviços', 'Comissões', 'Clientes'];
+  const tabs = ['agenda', 'jornada', 'servicos', 'comissoes', 'clientes'];
+  const tabPanels = tabs.map(t => $(`panel-${t}`));
+
+  function definirMenuAberto(aberto, devolverFoco = false) {
+    if (!menuMobile.matches) {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('visible');
+      sidebarOverlay.setAttribute('aria-hidden', 'true');
+      sidebar.removeAttribute('aria-hidden');
+      sidebar.removeAttribute('inert');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.setAttribute('aria-label', 'Abrir menu');
+      return;
+    }
+
+    sidebar.classList.toggle('open', aberto);
+    sidebarOverlay.classList.toggle('visible', aberto);
+    sidebarOverlay.setAttribute('aria-hidden', String(!aberto));
+    sidebar.setAttribute('aria-hidden', String(!aberto));
+    if (aberto) sidebar.removeAttribute('inert');
+    else sidebar.setAttribute('inert', '');
+    menuBtn.setAttribute('aria-expanded', String(aberto));
+    menuBtn.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
+    if (aberto) {
+      const firstNav = sidebar.querySelector('.nav-item');
+      if (firstNav) firstNav.focus();
+    } else if (devolverFoco) {
+      menuBtn.focus();
+    }
+  }
+
+  menuMobile.addEventListener('change', () => definirMenuAberto(false));
+  definirMenuAberto(false);
+
+  function mostrarTab(idx) {
+    tabPanels.forEach((p, i) => p.hidden = i !== idx);
+    sidebarTabs.forEach((b) => {
+      const selecionado = Number(b.dataset.tabIndex) === idx;
+      b.classList.toggle('active', selecionado);
+      if (selecionado) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    if (tituloPagina) tituloPagina.textContent = tabTitulos[idx];
+  }
+
+  sidebarTabs.forEach((b) => b.addEventListener('click', () => {
+    mostrarTab(Number(b.dataset.tabIndex));
+    definirMenuAberto(false, true);
+  }));
+  menuBtn.addEventListener('click', () => definirMenuAberto(menuBtn.getAttribute('aria-expanded') !== 'true'));
+  sidebarOverlay.addEventListener('click', () => definirMenuAberto(false, true));
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape' && menuBtn.getAttribute('aria-expanded') === 'true') {
+      definirMenuAberto(false, true);
+    }
+  });
+  mostrarTab(0);
+
   try {
     const usuario = await exigir('barbeiro');
-    $('avatar').textContent = iniciais(usuario.nome);
+    $('sidebar-avatar').textContent = iniciais(usuario.nome);
+    $('sidebar-user-name').textContent = usuario.nome;
     const primeiroNome = usuario.nome.split(' ')[0];
-
-    // Tabs
-    const tabs = ['agenda', 'jornada', 'servicos', 'comissoes', 'clientes'];
-    const tabBtns = tabs.map(t => $(`tab-${t}`));
-    const tabPanels = tabs.map(t => $(`panel-${t}`));
-    function mostrarTab(idx) {
-      tabBtns.forEach((b, i) => b.setAttribute('aria-selected', i === idx ? 'true' : 'false'));
-      tabPanels.forEach((p, i) => p.hidden = i !== idx);
-    }
-    tabBtns.forEach((b, i) => b.addEventListener('click', () => mostrarTab(i)));
-    mostrarTab(0);
 
     // Carrega dados do barbeiro
     const [{ barbeiro }, { servicos }] = await Promise.all([
@@ -63,12 +118,12 @@
 
         if (!agendamentos.length) {
           container.innerHTML = '';
-          container.append(el('p', { class: 'vazio-agenda' },
+          container.append(el('div', { class: 'vazio-agenda', role: 'status' },
             el('span', { class: 'icon', 'aria-hidden': 'true' },
               el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-calendar' }))
             ),
             el('div', { text: 'Nenhum agendamento para esta data' }),
-            el('p', { class: 'small', text: status ? `Filtro: ${status}` : '' })
+            el('div', { class: 'small', text: status ? `Filtro ativo: ${status}` : 'Confira a data selecionada ou escolha outro status.' })
           ));
           return;
         }
@@ -183,7 +238,7 @@
 
         if (!comissoes.length) {
           container.innerHTML = '';
-          container.append(el('p', { class: 'vazio-agenda' },
+          container.append(el('div', { class: 'vazio-agenda', role: 'status' },
             el('span', { class: 'icon', 'aria-hidden': 'true' },
               el('svg', { 'aria-hidden': 'true' }, el('use', { href: 'icons/icons.svg#icon-money' }))
             ),
@@ -220,7 +275,7 @@
             el('th', { text: 'Qtd' }),
             el('th', { text: 'Comissão' }),
             el('th', { text: 'Status' }),
-          ))),
+          )),
           el('tbody', {}, linhas)
         ));
 
@@ -232,7 +287,7 @@
             el('th', { text: 'Total a receber' }),
             el('th', { text: 'Total pago' }),
             el('th', { text: 'Total geral' }),
-          ))),
+          )),
           el('tbody', {}, el('tr', {},
             el('td', { text: brl(aReceber), style: 'font-weight: 600; color: var(--cor-alerta);' }),
             el('td', { text: brl(pago), style: 'font-weight: 600; color: var(--cor-sucesso);' }),

@@ -6,6 +6,7 @@ const { abrirBanco, garantirAdmin } = require('./src/db');
 const { ErroHttp, lerJson, enviarJson, lerCookies } = require('./src/http');
 const { criarRotas } = require('./src/routes');
 const auth = require('./src/auth');
+const { logger, requestLogger, logErro } = require('./src/logger');
 
 const TIPOS = {
   '.html': 'text/html; charset=utf-8',
@@ -60,41 +61,50 @@ function criarServidor({ db, pastaPublica = path.join(__dirname, 'public'), limi
 
   const servidor = http.createServer(async (req, res) => {
     cabecalhosDeSeguranca(res);
-    try {
-      const url = new URL(req.url, 'http://localhost');
-      const caminho = url.pathname;
 
-      if (!caminho.startsWith('/api/')) {
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          throw new ErroHttp(405, 'Método não permitido.');
-        }
-        return servirArquivo(req, res, raiz, caminho);
-      }
+    // Request logging middleware
+    return new Promise((resolve) => {
+      requestLogger(req, res, () => {
+        (async () => {
+          try {
+            const url = new URL(req.url, 'http://localhost');
+            const caminho = url.pathname;
 
-      const { rota, params, caminhoExiste } = rotas.encontrar(req.method, caminho);
-      if (!rota) {
-        throw caminhoExiste ? new ErroHttp(405, 'Método não permitido.') : new ErroHttp(404, 'Rota não encontrada.');
-      }
+            if (!caminho.startsWith('/api/')) {
+              if (req.method !== 'GET' && req.method !== 'HEAD') {
+                throw new ErroHttp(405, 'Método não permitido.');
+              }
+              return servirArquivo(req, res, raiz, caminho);
+            }
 
-      const token = lerCookies(req).sid || null;
-      const ctx = {
-        req, res, params, token,
-        query: Object.fromEntries(url.searchParams),
-        ip: req.socket.remoteAddress || '',
-        usuario: auth.usuarioDaSessao(db, token),
-        body: {},
-        status: 200,
-      };
-      if (req.method !== 'GET' && req.method !== 'HEAD') ctx.body = await lerJson(req);
+            const { rota, params, caminhoExiste } = rotas.encontrar(req.method, caminho);
+            if (!rota) {
+              throw caminhoExiste ? new ErroHttp(405, 'Método não permitido.') : new ErroHttp(404, 'Rota não encontrada.');
+            }
 
-      let resultado;
-      for (const handler of rota.handlers) resultado = await handler(ctx);
-      enviarJson(res, ctx.status, resultado);
-    } catch (erro) {
-      if (erro instanceof ErroHttp) return enviarJson(res, erro.status, { erro: erro.message });
-      console.error(erro);
-      enviarJson(res, 500, { erro: 'Erro interno. Tente novamente.' });
-    }
+            const token = lerCookies(req).sid || null;
+            const ctx = {
+              req, res, params, token,
+              query: Object.fromEntries(url.searchParams),
+              ip: req.socket.remoteAddress || '',
+              usuario: auth.usuarioDaSessao(db, token),
+              body: {},
+              status: 200,
+            };
+            if (req.method !== 'GET' && req.method !== 'HEAD') ctx.body = await lerJson(req);
+
+            let resultado;
+            for (const handler of rota.handlers) resultado = await handler(ctx);
+            enviarJson(res, ctx.status, resultado);
+          } catch (erro) {
+            if (erro instanceof ErroHttp) return enviarJson(res, erro.status, { erro: erro.message });
+            logErro(erro, { url: req.url, method: req.method, ip: req.socket.remoteAddress });
+            enviarJson(res, 500, { erro: 'Erro interno. Tente novamente.' });
+          }
+          resolve();
+        })();
+      });
+    });
   });
 
   return servidor;
@@ -109,7 +119,7 @@ async function iniciar() {
   setInterval(() => auth.limparSessoesExpiradas(db), 60 * 60 * 1000).unref();
 
   criarServidor({ db }).listen(porta, () => {
-    console.log(`Barbearia rodando em http://localhost:${porta}`);
+    logger.info({ porta }, `Barbearia rodando em http://localhost:${porta}`);
   });
 }
 
@@ -117,7 +127,7 @@ module.exports = { criarServidor };
 
 if (require.main === module) {
   iniciar().catch((erro) => {
-    console.error(erro);
+    logErro(erro);
     process.exit(1);
   });
 }

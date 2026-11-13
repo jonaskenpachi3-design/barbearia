@@ -6,23 +6,13 @@
 <title>Início · Barbearia Andrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/cliente-booking.css">
 </head>
 <body>
 <a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
 <svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
 <div class="shell cliente-shell">
-  <header class="topbar">
-    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
-      <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
-    </button>
-    <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
-    <div class="who">
-      <span class="avatar" id="avatar" aria-hidden="true"></span>
-      <button class="btn btn-sm btn-outline" id="sair" type="button">Sair</button>
-    </div>
-  </header>
-
-  <aside class="sidebar cliente-sidebar" id="sidebar" aria-label="Menu do cliente" aria-hidden="true" inert>
+  <aside class="sidebar cliente-sidebar" id="sidebar" aria-label="Menu do cliente">
     <div class="cliente-sidebar-header">
       <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
       <button class="btn btn-ghost btn-icon" id="fechar-menu" type="button" aria-label="Fechar menu">
@@ -30,26 +20,36 @@
       </button>
     </div>
     <nav class="nav sidebar-nav" aria-label="Seções do cliente">
-      <button class="nav-item active" type="button" data-tab-index="0" aria-current="page"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-calendar"/></svg>Agendar</button>
-      <button class="nav-item" type="button" data-tab-index="1"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-clock"/></svg>Minha Agenda</button>
-      <button class="nav-item" type="button" data-tab-index="2"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-money"/></svg>Planos</button>
-      <button class="nav-item" type="button" data-tab-index="3"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg>Serviços</button>
-      <button class="nav-item" type="button" data-tab-index="4"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-user"/></svg>Barbeiros</button>
+      <button class="nav-item active" id="nav-agendar" type="button" data-tab-index="0" aria-current="page"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-calendar"/></svg>Agendar</button>
+      <button class="nav-item" id="nav-minha-agenda" type="button" data-tab-index="1"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-clock"/></svg>Minha Agenda</button>
+      <button class="nav-item" id="nav-planos" type="button" data-tab-index="2"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-money"/></svg>Planos</button>
+      <button class="nav-item" id="nav-servicos" type="button" data-tab-index="3"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg>Serviços</button>
+      <button class="nav-item" id="nav-barbeiros" type="button" data-tab-index="4"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-user"/></svg>Barbeiros</button>
     </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <span class="avatar sidebar-user-avatar" id="avatar" aria-hidden="true"></span>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-user-name"></div>
+          <div class="sidebar-user-role">Cliente</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="sair" type="button">Sair</button>
+      </div>
+    </div>
   </aside>
 
   <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
   <main class="main" id="main-content" role="main">
-    <nav class="tabs" role="tablist" aria-label="Seções do cliente">
-      <button class="tab" role="tab" id="tab-agendar" aria-selected="true" type="button">Agendar</button>
-      <button class="tab" role="tab" id="tab-minha-agenda" aria-selected="false" type="button">Minha Agenda</button>
-      <button class="tab" role="tab" id="tab-planos" aria-selected="false" type="button">Planos</button>
-      <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
-      <button class="tab" role="tab" id="tab-barbeiros" aria-selected="false" type="button">Barbeiros</button>
-    </nav>
+    <header class="main-header">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+        <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
+      </button>
+      <div class="main-title"><h1 class="display" id="titulo-pagina">Agendar</h1></div>
+      <div class="main-header-spacer" aria-hidden="true"></div>
+    </header>
 
-    <section class="tabpanel" id="panel-agendar" role="tabpanel" aria-labelledby="tab-agendar">
+    <section class="tabpanel" id="panel-agendar" aria-labelledby="nav-agendar">
       <header class="cliente-intro">
         <span class="cliente-eyebrow">BARBEARIA ANDRADE</span>
         <h1>Seu próximo corte começa aqui</h1>
@@ -64,6 +64,7 @@
             <p>Preencha os detalhes para consultar a disponibilidade.</p>
           </div>
         </div>
+        <div class="field-error" id="ag-erro" role="alert" hidden></div>
         <div class="row cliente-booking-fields">
           <div class="field">
             <label for="ag-data" class="field-label">Data</label>
@@ -85,23 +86,22 @@
           </div>
           <div id="ag-horarios" class="chips" aria-live="polite"></div>
         </div>
-        <div class="field-error" id="ag-erro" role="alert" hidden></div>
       </div>
     </section>
 
-    <section class="tabpanel" id="panel-minha-agenda" role="tabpanel" aria-labelledby="tab-minha-agenda" hidden>
+    <section class="tabpanel" id="panel-minha-agenda" aria-labelledby="nav-minha-agenda" hidden>
       <h2 class="display section-title">Próximos agendamentos</h2>
       <div class="list" id="agenda-proximos" aria-live="polite"></div>
       <h2 class="display section-title" style="margin-top: 24px;">Histórico</h2>
       <div class="list" id="agenda-historico" aria-live="polite"></div>
     </section>
 
-    <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="tab-servicos" hidden>
+    <section class="tabpanel" id="panel-servicos" aria-labelledby="nav-servicos" hidden>
       <h2 class="display section-title">Serviços</h2>
       <div class="list" id="servicos" aria-live="polite"></div>
     </section>
 
-    <section class="tabpanel" id="panel-planos" role="tabpanel" aria-labelledby="tab-planos" hidden>
+    <section class="tabpanel" id="panel-planos" aria-labelledby="nav-planos" hidden>
       <h2 class="display section-title">Meus Planos</h2>
       <div id="planos-disponiveis" class="list" aria-live="polite"></div>
       <h2 class="display section-title" style="margin-top: 24px;" id="minha-assinatura-titulo" hidden>Minha Assinatura</h2>
@@ -109,7 +109,7 @@
       <div id="faturas-assinatura" class="list" hidden aria-live="polite"></div>
     </section>
 
-    <section class="tabpanel" id="panel-barbeiros" role="tabpanel" aria-labelledby="tab-barbeiros" hidden>
+    <section class="tabpanel" id="panel-barbeiros" aria-labelledby="nav-barbeiros" hidden>
       <h2 class="display section-title">Barbeiros</h2>
       <div class="list" id="barbeiros" aria-live="polite"></div>
     </section>

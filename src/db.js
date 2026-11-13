@@ -7,15 +7,16 @@ const { hashSenha } = require('./senha');
 
 const ESQUEMA = `
 CREATE TABLE IF NOT EXISTS usuarios (
-  id          INTEGER PRIMARY KEY,
-  nome        TEXT    NOT NULL,
-  email       TEXT    NOT NULL UNIQUE,
-  telefone    TEXT,
-  senha_hash  TEXT    NOT NULL,
-  papel       TEXT    NOT NULL CHECK (papel IN ('cliente','barbeiro','admin')),
-  ativo       INTEGER NOT NULL DEFAULT 1,
-  criado_em   TEXT    NOT NULL DEFAULT (datetime('now'))
+  id            INTEGER PRIMARY KEY,
+  nome          TEXT    NOT NULL,
+  email         TEXT    NOT NULL UNIQUE,
+  telefone      TEXT,
+  senha_hash    TEXT    NOT NULL,
+  papel         TEXT    NOT NULL CHECK (papel IN ('cliente','barbeiro','admin')),
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  criado_em     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+-- gateway_id e ultimo_acesso são adicionados via migração (após CREATE TABLE)
 
 CREATE TABLE IF NOT EXISTS sessoes (
   token_hash  TEXT    PRIMARY KEY,
@@ -258,6 +259,18 @@ CREATE TABLE IF NOT EXISTS faturas (
 );
 CREATE INDEX IF NOT EXISTS idx_faturas_assinatura ON faturas (assinatura_id, status);
 CREATE INDEX IF NOT EXISTS idx_faturas_vencimento ON faturas (vencimento);
+
+-- Webhook idempotency (evita processamento duplicado)
+CREATE TABLE IF NOT EXISTS webhook_eventos (
+  id              INTEGER PRIMARY KEY,
+  gateway         TEXT    NOT NULL,           -- mercadopago, asaas, stripe
+  evento_id       TEXT    NOT NULL,           -- ID único do evento no gateway
+  tipo            TEXT    NOT NULL,           -- payment_approved, subscription_cancelled, etc.
+  payload         TEXT    NOT NULL,           -- JSON original do webhook
+  processado_em   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_gateway_evento ON webhook_eventos (gateway, evento_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_processado ON webhook_eventos (processado_em);
 `;
 
 function abrirBanco(arquivo) {
@@ -280,6 +293,21 @@ function abrirBanco(arquivo) {
   const temCategoria = colsServicos.some(c => c.name === 'categoria');
   if (!temCategoria) {
     db.exec("ALTER TABLE servicos ADD COLUMN categoria TEXT NOT NULL DEFAULT 'individual' CHECK (categoria IN ('individual','combo','plano'))");
+  }
+
+  // Migração: adiciona gateway_id e ultimo_acesso em usuarios se não existirem
+  const colsUsuarios = db.prepare("PRAGMA table_info(usuarios)").all();
+  const temGatewayId = colsUsuarios.some(c => c.name === 'gateway_id');
+  const temUltimoAcesso = colsUsuarios.some(c => c.name === 'ultimo_acesso');
+  if (!temGatewayId) {
+    // SQLite não permite ADD COLUMN UNIQUE em tabela com dados; adiciona sem UNIQUE e cria índice único depois
+    db.exec("ALTER TABLE usuarios ADD COLUMN gateway_id TEXT");
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_gateway ON usuarios (gateway_id)");
+  }
+  if (!temUltimoAcesso) {
+    // SQLite não permite DEFAULT datetime('now') em ADD COLUMN; usa valor constante e atualiza depois
+    db.exec("ALTER TABLE usuarios ADD COLUMN ultimo_acesso TEXT NOT NULL DEFAULT ''");
+    db.exec("UPDATE usuarios SET ultimo_acesso = datetime('now') WHERE ultimo_acesso = ''");
   }
 
   // Migração: cria planos padrão se não existirem
@@ -335,4 +363,43 @@ async function garantirAdmin(db, { email, senha, log = console.log } = {}) {
   return emailAdmin;
 }
 
-module.exports = { abrirBanco, transacao, garantirAdmin };
+async function resetarAdmin(db, { email = 'admin@barbearia.local', log = console.log } = {}) {
+  const emailAdmin = String(email).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAdmin) || emailAdmin.length > 120) {
+    throw new Error('ADMIN_EMAIL deve ser um endereço de e-mail válido com até 120 caracteres.');
+  }
+
+  const administrador = db.prepare(
+    "SELECT id FROM usuarios WHERE papel = 'admin' ORDER BY id LIMIT 1"
+  ).get();
+  const conflito = db.prepare('SELECT papel FROM usuarios WHERE lower(email) = ?').get(emailAdmin);
+  if (conflito && (!administrador || conflito.papel !== 'admin')) {
+    throw new Error('O e-mail escolhido já pertence a outra conta. Defina outro ADMIN_EMAIL.');
+  }
+
+  const senhaAdmin = randomBytes(18).toString('base64url');
+  const senhaHash = await hashSenha(senhaAdmin);
+
+  transacao(db, () => {
+    if (administrador) {
+      db.prepare(`
+        UPDATE usuarios
+           SET email = ?, senha_hash = ?, ativo = 1
+         WHERE id = ?
+      `).run(emailAdmin, senhaHash, administrador.id);
+      db.prepare('DELETE FROM sessoes WHERE usuario_id = ?').run(administrador.id);
+    } else {
+      db.prepare(`
+        INSERT INTO usuarios (nome, email, senha_hash, papel)
+        VALUES ('Administrador', ?, ?, 'admin')
+      `).run(emailAdmin, senhaHash);
+    }
+  });
+
+  log('Acesso do administrador redefinido. Anote as credenciais (a senha não será exibida novamente):');
+  log(`   e-mail: ${emailAdmin}`);
+  log(`   senha:  ${senhaAdmin}`);
+  return { email: emailAdmin, senha: senhaAdmin };
+}
+
+module.exports = { abrirBanco, transacao, garantirAdmin, resetarAdmin };

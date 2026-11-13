@@ -7,33 +7,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 </head>
-<body>
+<body class="barbeiro-page">
 <a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
 <svg style="display:none"><use href="icons/icons.svg#icon-scissors"/></svg>
-<div class="shell">
-  <header class="topbar">
-    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
-      <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
-    </button>
-    <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
-    <div class="who">
-      <span class="avatar" id="avatar" aria-hidden="true"></span>
-      <button class="btn btn-sm btn-outline" id="sair" type="button">Sair</button>
+<div class="shell barbeiro-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Menu do barbeiro">
+    <div class="sidebar-brand">
+      <div class="brand"><span>BARBEARIA</span><span>ANDRADE</span></div>
     </div>
-  </header>
+    <nav class="nav sidebar-nav" aria-label="Seções do barbeiro">
+      <button class="nav-item active" id="nav-agenda" type="button" data-tab-index="0" aria-current="page"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-calendar"/></svg>Agenda de hoje</button>
+      <button class="nav-item" id="nav-jornada" type="button" data-tab-index="1"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-clock"/></svg>Minha jornada</button>
+      <button class="nav-item" id="nav-servicos" type="button" data-tab-index="2"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-scissors"/></svg>Meus serviços</button>
+      <button class="nav-item" id="nav-comissoes" type="button" data-tab-index="3"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-percent"/></svg>Comissões</button>
+      <button class="nav-item" id="nav-clientes" type="button" data-tab-index="4"><svg class="icon" aria-hidden="true"><use href="icons/icons.svg#icon-user"/></svg>Clientes</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user">
+        <span class="avatar sidebar-user-avatar" id="sidebar-avatar" aria-hidden="true"></span>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-user-name"></div>
+          <div class="sidebar-user-role">Barbeiro</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="sair" type="button">Sair</button>
+      </div>
+    </div>
+  </aside>
 
   <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
   <main class="main" id="main-content" role="main">
-    <nav class="tabs" role="tablist" aria-label="Seções do barbeiro">
-      <button class="tab" role="tab" id="tab-agenda" aria-selected="true" type="button">Agenda de hoje</button>
-      <button class="tab" role="tab" id="tab-jornada" aria-selected="false" type="button">Minha jornada</button>
-      <button class="tab" role="tab" id="tab-servicos" aria-selected="false" type="button">Serviços</button>
-      <button class="tab" role="tab" id="tab-comissoes" aria-selected="false" type="button">Comissões</button>
-      <button class="tab" role="tab" id="tab-clientes" aria-selected="false" type="button">Clientes</button>
-    </nav>
+    <header class="main-header">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+        <svg class="icon icon-lg" aria-hidden="true"><use href="icons/icons.svg#icon-menu"/></svg>
+      </button>
+      <div class="main-title"><h1 class="display" id="titulo-pagina">Agenda de hoje</h1></div>
+      <div style="width: 48px;"></div>
+    </header>
 
-    <section class="tabpanel" id="panel-agenda" role="tabpanel" aria-labelledby="tab-agenda">
+    <section class="tabpanel" id="panel-agenda" role="tabpanel" aria-labelledby="nav-agenda">
       <div class="card">
         <div class="row">
           <div class="field">
@@ -55,17 +67,19 @@
       <div class="list" id="bb-agenda" aria-live="polite"></div>
     </section>
 
-    <section class="tabpanel" id="panel-jornada" role="tabpanel" aria-labelledby="tab-jornada" hidden>
+    <section class="tabpanel" id="panel-jornada" role="tabpanel" aria-labelledby="nav-jornada" hidden>
       <div class="card"><div class="dias" id="dias"></div></div>
     </section>
 
-    <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="tab-servicos" hidden>
-      <h2 class="display section-title">Serviços que atendo</h2>
-      <div class="chips" id="servicos"></div>
-      <p class="muted small" id="comissao"></p>
+    <section class="tabpanel" id="panel-servicos" role="tabpanel" aria-labelledby="nav-servicos" hidden>
+      <div class="card">
+        <h2 class="display section-title">Serviços que atendo</h2>
+        <div class="chips" id="servicos"></div>
+        <p class="muted small" id="comissao"></p>
+      </div>
     </section>
 
-    <section class="tabpanel" id="panel-comissoes" role="tabpanel" aria-labelledby="tab-comissoes" hidden>
+    <section class="tabpanel" id="panel-comissoes" role="tabpanel" aria-labelledby="nav-comissoes" hidden>
       <div class="card">
         <div class="field" style="flex: 1; min-width: 160px;">
           <label for="bc-status" class="field-label">Status</label>
@@ -88,7 +102,7 @@
       <div class="tabela" id="bc-resumo" style="margin-top: 16px;"></div>
     </section>
 
-    <section class="tabpanel" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes" hidden>
+    <section class="tabpanel" id="panel-clientes" role="tabpanel" aria-labelledby="nav-clientes" hidden>
       <div class="card">
         <div class="field" style="flex: 1; min-width: 200px;">
           <label for="bcl-busca" class="field-label sr-only">Buscar cliente</label>

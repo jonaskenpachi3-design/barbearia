@@ -5,59 +5,73 @@
 
   $('sair').addEventListener('click', sair);
 
+  const tabs = ['agendar', 'minha-agenda', 'planos', 'servicos', 'barbeiros'];
+  const tabPanels = tabs.map(t => $(`panel-${t}`));
+  const menuBtn = $('mobile-menu-btn');
+  const sidebar = $('sidebar');
+  const sidebarOverlay = $('sidebar-overlay');
+  const menuCloseBtn = $('fechar-menu');
+  const sidebarTabs = sidebar.querySelectorAll('[data-tab-index]');
+  const tituloPagina = $('titulo-pagina');
+  const titulos = ['Agendar', 'Minha Agenda', 'Planos', 'Serviços', 'Barbeiros'];
+  const menuMobile = window.matchMedia('(max-width: 1024px)');
+  let btnConfirmar = null;
+
+  function mostrarTab(idx) {
+    tabPanels.forEach((p, i) => p.hidden = i !== idx);
+    sidebarTabs.forEach((b) => {
+      const selecionado = Number(b.dataset.tabIndex) === idx;
+      b.classList.toggle('active', selecionado);
+      if (selecionado) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    tituloPagina.textContent = titulos[idx];
+  }
+
+  function definirMenuAberto(aberto, devolverFoco = false) {
+    if (!menuMobile.matches) {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('visible');
+      sidebarOverlay.setAttribute('aria-hidden', 'true');
+      sidebar.removeAttribute('aria-hidden');
+      sidebar.removeAttribute('inert');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.setAttribute('aria-label', 'Abrir menu');
+      return;
+    }
+
+    sidebar.classList.toggle('open', aberto);
+    sidebarOverlay.classList.toggle('visible', aberto);
+    sidebarOverlay.setAttribute('aria-hidden', String(!aberto));
+    sidebar.setAttribute('aria-hidden', String(!aberto));
+    if (aberto) sidebar.removeAttribute('inert');
+    else sidebar.setAttribute('inert', '');
+    menuBtn.setAttribute('aria-expanded', String(aberto));
+    menuBtn.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
+    if (aberto) menuCloseBtn.focus();
+    else if (devolverFoco) menuBtn.focus();
+  }
+
+  sidebarTabs.forEach((b) => b.addEventListener('click', () => {
+    mostrarTab(Number(b.dataset.tabIndex));
+    definirMenuAberto(false, true);
+  }));
+  menuBtn.addEventListener('click', () => definirMenuAberto(menuBtn.getAttribute('aria-expanded') !== 'true'));
+  menuCloseBtn.addEventListener('click', () => definirMenuAberto(false, true));
+  sidebarOverlay.addEventListener('click', () => definirMenuAberto(false, true));
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape' && menuBtn.getAttribute('aria-expanded') === 'true') {
+      definirMenuAberto(false, true);
+    }
+  });
+  menuMobile.addEventListener('change', () => definirMenuAberto(false));
+  definirMenuAberto(false);
+  mostrarTab(0);
+
   try {
     const usuario = await exigir('cliente');
     $('avatar').textContent = iniciais(usuario.nome);
-    const primeiroNome = usuario.nome.split(' ')[0];
-
-    // ─── Tabs ───
-    const tabs = ['agendar', 'minha-agenda', 'planos', 'servicos', 'barbeiros'];
-    const tabBtns = tabs.map(t => $(`tab-${t}`));
-    const tabPanels = tabs.map(t => $(`panel-${t}`));
-    const menuBtn = $('mobile-menu-btn');
-    const sidebar = $('sidebar');
-    const sidebarOverlay = $('sidebar-overlay');
-    const menuCloseBtn = $('fechar-menu');
-    const sidebarTabs = sidebar.querySelectorAll('[data-tab-index]');
-
-    function mostrarTab(idx) {
-      tabBtns.forEach((b, i) => b.setAttribute('aria-selected', i === idx ? 'true' : 'false'));
-      tabPanels.forEach((p, i) => p.hidden = i !== idx);
-      sidebarTabs.forEach((b) => {
-        const selecionado = Number(b.dataset.tabIndex) === idx;
-        b.classList.toggle('active', selecionado);
-        if (selecionado) b.setAttribute('aria-current', 'page');
-        else b.removeAttribute('aria-current');
-      });
-    }
-
-    function definirMenuAberto(aberto, devolverFoco = false) {
-      sidebar.classList.toggle('open', aberto);
-      sidebarOverlay.classList.toggle('visible', aberto);
-      sidebarOverlay.setAttribute('aria-hidden', String(!aberto));
-      sidebar.setAttribute('aria-hidden', String(!aberto));
-      if (aberto) sidebar.removeAttribute('inert');
-      else sidebar.setAttribute('inert', '');
-      menuBtn.setAttribute('aria-expanded', String(aberto));
-      menuBtn.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
-      if (aberto) menuCloseBtn.focus();
-      else if (devolverFoco) menuBtn.focus();
-    }
-
-    tabBtns.forEach((b, i) => b.addEventListener('click', () => mostrarTab(i)));
-    sidebarTabs.forEach((b) => b.addEventListener('click', () => {
-      mostrarTab(Number(b.dataset.tabIndex));
-      definirMenuAberto(false, true);
-    }));
-    menuBtn.addEventListener('click', () => definirMenuAberto(menuBtn.getAttribute('aria-expanded') !== 'true'));
-    menuCloseBtn.addEventListener('click', () => definirMenuAberto(false, true));
-    sidebarOverlay.addEventListener('click', () => definirMenuAberto(false, true));
-    document.addEventListener('keydown', (evento) => {
-      if (evento.key === 'Escape' && menuBtn.getAttribute('aria-expanded') === 'true') {
-        definirMenuAberto(false, true);
-      }
-    });
-    mostrarTab(0);
+    $('sidebar-user-name').textContent = usuario.nome;
 
     // ─── Carrega serviços e barbeiros ───
     const [{ servicos }, { barbeiros }] = await Promise.all([
@@ -69,14 +83,25 @@
     const nomePorId = new Map(servicos.map(s => [s.id, s.nome]));
 
     // Preenche selects
-    function preencheSelect(elSelect, itens, labelCampo, placeholder) {
-      elSelect.innerHTML = `<option value="">${placeholder}</option>`;
+    function preencheSelect(elSelect, itens, labelCampo, placeholder, vazio) {
+      elSelect.replaceChildren(el('option', {
+        value: '',
+        text: itens.length ? placeholder : vazio,
+      }));
+      elSelect.disabled = itens.length === 0;
       for (const item of itens) {
         elSelect.append(el('option', { value: item.id }, item[labelCampo]));
       }
     }
-    preencheSelect($('ag-servico'), servicos, 'nome', 'Selecione o serviço');
-    preencheSelect($('ag-barbeiro'), barbeiros.filter(b => b.ativo), 'nome', 'Selecione o barbeiro');
+    const barbeirosAtivos = barbeiros.filter(b => b.ativo);
+    preencheSelect($('ag-servico'), servicos, 'nome', 'Selecione o serviço', 'Nenhum serviço disponível');
+    preencheSelect($('ag-barbeiro'), barbeirosAtivos, 'nome', 'Selecione o barbeiro', 'Nenhum barbeiro disponível');
+    if (!servicos.length || !barbeirosAtivos.length) {
+      $('ag-erro').textContent = !servicos.length
+        ? 'Não há serviços ativos para agendar no momento.'
+        : 'Não há barbeiros disponíveis para agendamento no momento.';
+      $('ag-erro').hidden = false;
+    }
 
     // Define data mínima = hoje
     $('ag-data').min = new Date().toISOString().split('T')[0];
@@ -84,6 +109,16 @@
 
     // ─── Agendamento ───
     let horarioSelecionado = null;
+
+    function atualizarBotaoConfirmar() {
+      if (!btnConfirmar) return;
+      btnConfirmar.disabled = !(
+        $('ag-data').value &&
+        $('ag-servico').value &&
+        $('ag-barbeiro').value &&
+        horarioSelecionado
+      );
+    }
 
     async function carregarHorarios() {
       const data = $('ag-data').value;
@@ -95,9 +130,20 @@
       container.innerHTML = '<span class="muted small">Carregando horários...</span>';
       erroEl.hidden = true;
       horarioSelecionado = null;
+      atualizarBotaoConfirmar();
+
+      if (!servicos.length || !barbeirosAtivos.length) {
+        container.innerHTML = '<span class="muted small">Agendamento indisponível no momento.</span>';
+        erroEl.textContent = !servicos.length
+          ? 'Não há serviços ativos para agendar no momento.'
+          : 'Não há barbeiros disponíveis para agendamento no momento.';
+        erroEl.hidden = false;
+        return;
+      }
 
       if (!data || !servicoId || !barbeiroId) {
         container.innerHTML = '<span class="muted small">Selecione data, serviço e barbeiro.</span>';
+        atualizarBotaoConfirmar();
         return;
       }
 
@@ -105,6 +151,7 @@
         const { slots } = await api.get(`/api/horarios-livres?barbeiro=${barbeiroId}&data=${data}&servico=${servicoId}`);
         if (!slots.length) {
           container.innerHTML = '<span class="muted small">Nenhum horário livre para esta data.</span>';
+          atualizarBotaoConfirmar();
           return;
         }
         container.innerHTML = '';
@@ -117,10 +164,12 @@
           });
           container.append(btn);
         }
+        atualizarBotaoConfirmar();
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.hidden = false;
         container.innerHTML = '';
+        atualizarBotaoConfirmar();
       }
     }
 
@@ -129,6 +178,7 @@
       btn.classList.add('selecionado');
       horarioSelecionado = hora;
       $('ag-erro').hidden = true;
+      atualizarBotaoConfirmar();
     }
 
     $('ag-data').addEventListener('change', carregarHorarios);
@@ -166,7 +216,8 @@
     });
 
     const containerHorarios = $('ag-horarios');
-    const btnConfirmar = el('button', { class: 'btn btn-primary btn-full cliente-booking-submit', text: 'Confirmar agendamento', onclick: criarAgendamento });
+    btnConfirmar = el('button', { class: 'btn btn-primary btn-full cliente-booking-submit', text: 'Confirmar agendamento', onclick: criarAgendamento });
+    btnConfirmar.disabled = true;
     containerHorarios.parentNode.insertBefore(btnConfirmar, containerHorarios.nextSibling);
 
     // ─── Minha Agenda ───
@@ -544,6 +595,16 @@
     carregarPlanos();
 
   } catch (erro) {
-    toast(erro.message, true);
+    const mensagem = window.location.protocol === 'file:'
+      ? 'Abra esta tela pelo servidor da aplicação (por exemplo, http://localhost:3000/cliente.html). O acesso direto ao arquivo não consegue carregar os serviços.'
+      : erro.message;
+    $('ag-servico').disabled = true;
+    $('ag-barbeiro').disabled = true;
+    $('ag-servico').replaceChildren(el('option', { value: '', text: 'Indisponível' }));
+    $('ag-barbeiro').replaceChildren(el('option', { value: '', text: 'Indisponível' }));
+    $('ag-erro').textContent = mensagem;
+    $('ag-erro').hidden = false;
+    if (btnConfirmar) btnConfirmar.disabled = true;
+    toast(mensagem, true);
   }
 })();
