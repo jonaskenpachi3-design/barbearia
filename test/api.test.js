@@ -284,14 +284,14 @@ async function criarCenario(sufixo) {
 // Helper: calcula próxima segunda-feira (ou dia útil)
 function proximaSegunda() {
   const d = new Date();
-  d.setDate(d.getDate() + ((1 + 7 - d.getDay()) % 7));
+  d.setUTCDate(d.getUTCDate() + ((1 + 7 - d.getUTCDay()) % 7));
   return d.toISOString().split('T')[0];
 }
 
 function proximoDiaUtil() {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  d.setUTCDate(d.getUTCDate() + 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().split('T')[0];
 }
 
@@ -1129,15 +1129,14 @@ test('agendamento publico: cancelamento so ate 2h antes', async () => {
 
   // Tenta cancelar "agora" (data do teste é no passado, mas a regra de 2h usa Date.now())
   // Como a data do agendamento é 2025-01-15 (passado), o cancelamento deve falhar por ser < 2h
-  // Para testar corretamente, usamos uma data futura
-  const futuro = new Date();
-  futuro.setDate(futuro.getDate() + 2); // daqui 2 dias
-  const dataFutura = futuro.toISOString().split('T')[0];
+  // Para testar corretamente, usamos uma data futura (próximo dia útil)
+  const dataFutura = proximoDiaUtil();
   const inicioFuturo = `${dataFutura}T14:00:00`;
 
   const ag2 = await chamar('POST', '/api/agendamentos-publico', {
     nome: 'Cliente Futuro', telefone: '(11) 99999-4444', barbeiro_id: barbeiro.id, servico_id: servico.id, inicio: inicioFuturo
   });
+  assert.equal(ag2.status, 201, 'Agendamento futuro deve ser criado: ' + JSON.stringify(ag2.corpo));
   const agendamentoId2 = ag2.corpo.agendamento.id;
   const codigo2 = ag2.corpo.codigo_cancelamento;
 

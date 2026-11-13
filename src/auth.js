@@ -37,9 +37,7 @@ function usuarioDaSessao(db, token) {
     return null;
   }
 
-  // Verifica inatividade (30 min) - sliding window
-  const tempoInativo = agora - sessao.expira_em + DURACAO_SESSAO_S; // expira_em = criado + DURACAO
-  // Melhor: verificar ultimo_acesso do usuário
+  // Verifica inatividade (30 min) - sliding window via ultimo_acesso
   const usuario = db.prepare("SELECT ultimo_acesso FROM usuarios WHERE id = ?").get(sessao.usuario_id);
   if (usuario) {
     const ultimoAcesso = Math.floor(new Date(usuario.ultimo_acesso).getTime() / 1000);

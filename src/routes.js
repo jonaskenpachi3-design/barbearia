@@ -769,6 +769,18 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
   // ───────────────────────── Fase 2: Minha Agenda (Cliente) ─────────────────────────
 
   r.get('/api/minha-agenda', soCliente, (ctx) => {
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    const whereBase = 'WHERE a.cliente_id = ?';
+    const paramsBase = [ctx.usuario.id];
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM agendamentos a ${whereBase}`).get(...paramsBase);
+    const total = totalRow.total;
+
     const agendamentos = db.prepare(`
       SELECT a.*, s.nome as servico_nome, s.duracao_min as servico_duracao, s.preco_centavos as servico_preco,
              u.nome as barbeiro_nome
@@ -776,9 +788,10 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       JOIN servicos s ON s.id = a.servico_id
       JOIN barbeiros b ON b.id = a.barbeiro_id
       JOIN usuarios u ON u.id = b.usuario_id
-      WHERE a.cliente_id = ?
+      ${whereBase}
       ORDER BY a.inicio DESC
-    `).all(ctx.usuario.id);
+      LIMIT ? OFFSET ?
+    `).all(...paramsBase, limit, offset);
 
     const agora = new Date().toISOString().slice(0, 19).replace('T', 'T');
     const proximos = agendamentos.filter(a => a.inicio >= agora && a.status !== 'cancelado');
@@ -786,7 +799,8 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
 
     return {
       proximos: proximos.map(a => agendamentoParaJson(a, true)),
-      historico: historico.map(a => agendamentoParaJson(a, true))
+      historico: historico.map(a => agendamentoParaJson(a, true)),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
     };
   });
 
@@ -809,6 +823,15 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       params.push(status);
     }
 
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM agendamentos a ${where}`).get(...params);
+    const total = totalRow.total;
+
     const agendamentos = db.prepare(`
       SELECT a.*, s.nome as servico_nome, s.duracao_min as servico_duracao, s.preco_centavos as servico_preco,
              u.nome as cliente_nome, u.telefone as cliente_telefone
@@ -817,9 +840,14 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       JOIN usuarios u ON u.id = a.cliente_id
       ${where}
       ORDER BY a.inicio
-    `).all(...params);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
 
-    return { data, agendamentos: agendamentos.map(a => agendamentoParaJson(a, true)) };
+    return {
+      data,
+      agendamentos: agendamentos.map(a => agendamentoParaJson(a, true)),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   // ───────────────────────── Fase 2: Agenda do Admin ─────────────────────────
@@ -843,6 +871,15 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       params.push(status);
     }
 
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM agendamentos a ${where}`).get(...params);
+    const total = totalRow.total;
+
     const agendamentos = db.prepare(`
       SELECT a.*, s.nome as servico_nome, s.duracao_min as servico_duracao, s.preco_centavos as servico_preco,
              u2.nome as barbeiro_nome, u.nome as cliente_nome, u.telefone as cliente_telefone
@@ -853,9 +890,14 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       JOIN usuarios u2 ON u2.id = b.usuario_id
       ${where}
       ORDER BY a.inicio
-    `).all(...params);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
 
-    return { data, agendamentos: agendamentos.map(a => agendamentoParaJson(a, true)) };
+    return {
+      data,
+      agendamentos: agendamentos.map(a => agendamentoParaJson(a, true)),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   // ───────────────────────── Fase 2: Bloqueios (Admin) ─────────────────────────
@@ -869,15 +911,28 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     if (barbeiroId) { where += ' AND (barbeiro_id = ? OR barbeiro_id IS NULL)'; params.push(barbeiroId); }
     if (data) { where += ' AND date(inicio) = date(?)'; params.push(data); }
 
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM bloqueios ${where}`).get(...params);
+    const total = totalRow.total;
+
     const bloqueios = db.prepare(`
       SELECT b.*, u.nome as criador_nome
       FROM bloqueios b
       JOIN usuarios u ON u.id = b.criado_por
       ${where}
       ORDER BY b.inicio
-    `).all(...params);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
 
-    return { bloqueios };
+    return {
+      bloqueios,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   r.post('/api/bloqueios', soAdmin, (ctx) => {
@@ -942,17 +997,45 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
 
   r.get('/api/produtos', auth.exigirLogin, (ctx) => {
     const admin = ctx.usuario.papel === 'admin';
+    const where = admin ? '' : 'WHERE ativo = 1';
+
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM produtos ${where}`).get();
+    const total = totalRow.total;
+
     const linhas = db.prepare(
-      `SELECT * FROM produtos ${admin ? '' : 'WHERE ativo = 1'} ORDER BY nome COLLATE NOCASE`
-    ).all();
-    return { produtos: linhas.map(produtoParaJson) };
+      `SELECT * FROM produtos ${where} ORDER BY nome COLLATE NOCASE LIMIT ? OFFSET ?`
+    ).all(limit, offset);
+    return {
+      produtos: linhas.map(produtoParaJson),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   r.get('/api/produtos/baixo-estoque', soAdmin, (ctx) => {
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(
+      'SELECT COUNT(*) as total FROM produtos WHERE ativo = 1 AND qtd_minima > 0 AND quantidade <= qtd_minima'
+    ).get();
+    const total = totalRow.total;
+
     const linhas = db.prepare(
-      'SELECT * FROM produtos WHERE ativo = 1 AND qtd_minima > 0 AND quantidade <= qtd_minima ORDER BY (quantidade * 1.0 / qtd_minima) ASC'
-    ).all();
-    return { produtos: linhas.map(produtoParaJson) };
+      'SELECT * FROM produtos WHERE ativo = 1 AND qtd_minima > 0 AND quantidade <= qtd_minima ORDER BY (quantidade * 1.0 / qtd_minima) ASC LIMIT ? OFFSET ?'
+    ).all(limit, offset);
+    return {
+      produtos: linhas.map(produtoParaJson),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   r.post('/api/produtos', soAdmin, (ctx) => {
@@ -1189,6 +1272,25 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
 
   // Vendas
   r.post('/api/vendas', auth.exigirPapel('barbeiro', 'admin'), (ctx) => {
+    // Idempotency-Key header (opcional, evita duplicação de clique duplo)
+    const idempotencyKey = ctx.req.headers['idempotency-key'] || ctx.req.headers['idempotency_key'];
+    if (idempotencyKey) {
+      const existente = db.prepare('SELECT venda_id FROM venda_idempotencia WHERE chave = ?').get(idempotencyKey);
+      if (existente) {
+        // Retorna a venda já criada
+        const venda = db.prepare(`
+          SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+          FROM vendas v
+          JOIN barbeiros b ON b.id = v.barbeiro_id
+          JOIN usuarios u ON u.id = b.usuario_id
+          LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+          WHERE v.id = ?
+        `).get(existente.venda_id);
+        const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(existente.venda_id);
+        return { venda: { ...vendaParaJson(venda, itens), barbeiro_nome: venda.barbeiro_nome, cliente_nome: venda.cliente_nome }, idempotente: true };
+      }
+    }
+
     // Barbeiro só pode vender se houver caixa aberto
     const caixa = obterCaixaAberto(db);
     if (!caixa) throw new ErroHttp(400, 'Não há caixa aberto. O administrador deve abrir o caixa primeiro.');
@@ -1308,6 +1410,11 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
           .run(total, total, caixa.id);
       }
 
+      // Registra idempotency key se fornecida
+      if (idempotencyKey) {
+        db.prepare('INSERT INTO venda_idempotencia (chave, venda_id) VALUES (?, ?)').run(idempotencyKey, id);
+      }
+
       return Number(id);
     });
 
@@ -1358,6 +1465,15 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       params.push(v.inteiro(ctx.query.caixa, 'O caixa', { min: 1 }));
     }
 
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM vendas v ${where}`).get(...params);
+    const total = totalRow.total;
+
     const vendas = db.prepare(`
       SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
       FROM vendas v
@@ -1366,10 +1482,13 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
       ${where}
       ORDER BY v.criado_em DESC
-      LIMIT 100
-    `).all(...params);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
 
-    return { vendas: vendas.map(v => vendaParaJson(v)) };
+    return {
+      vendas: vendas.map(v => vendaParaJson(v)),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   r.get('/api/vendas/:id', auth.exigirLogin, (ctx) => {
@@ -1405,6 +1524,73 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     return { venda: { ...vendaParaJson(venda, itens), barbeiro_nome: venda.barbeiro_nome, cliente_nome: venda.cliente_nome } };
   });
 
+  // PUT /api/vendas/:id/cancelar - cancela venda com estorno completo (admin only)
+  r.put('/api/vendas/:id/cancelar', soAdmin, (ctx) => {
+    const id = v.idDaUrl(ctx.params.id);
+    const venda = db.prepare('SELECT * FROM vendas WHERE id = ?').get(id);
+    if (!venda) throw new ErroHttp(404, 'Venda não encontrada.');
+
+    if (venda.status === 'cancelada') throw new ErroHttp(400, 'Venda já cancelada.');
+
+    // Verifica se o caixa da venda ainda está aberto (não pode cancelar se caixa fechado)
+    const caixa = db.prepare('SELECT * FROM caixa WHERE id = ?').get(venda.caixa_id);
+    if (!caixa) throw new ErroHttp(400, 'Caixa da venda não encontrado.');
+    if (caixa.status === 'fechado') throw new ErroHttp(400, 'Não é possível cancelar venda de caixa já fechado.');
+
+    const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(id);
+
+    transacao(db, () => {
+      // 1. Estorna estoque de produtos
+      for (const item of itens) {
+        if (item.tipo === 'produto') {
+          db.prepare('UPDATE produtos SET quantidade = quantidade + ? WHERE id = ?').run(item.quantidade, item.referencia_id);
+        }
+      }
+
+      // 2. Cancela comissões (marca como 'cancelada' ou remove se 'a_receber')
+      const comissoes = db.prepare('SELECT * FROM comissoes WHERE venda_item_id IN (SELECT id FROM venda_itens WHERE venda_id = ?)').all(id);
+      for (const c of comissoes) {
+        if (c.status === 'a_receber') {
+          db.prepare('DELETE FROM comissoes WHERE id = ?').run(c.id);
+        } else if (c.status === 'pago') {
+          // Se já foi pago, marca como estornado (não apaga para auditoria)
+          db.prepare("UPDATE comissoes SET status = 'estornado', observacao = COALESCE(observacao, '') || ' | ESTORNO: venda cancelada' WHERE id = ?").run(c.id);
+        }
+      }
+
+      // 3. Reverte totais do caixa
+      const total = venda.total_centavos;
+      if (venda.forma_pagamento === 'dinheiro') {
+        db.prepare('UPDATE caixa SET total_dinheiro_centavos = total_dinheiro_centavos - ? WHERE id = ?').run(total, caixa.id);
+      } else if (venda.forma_pagamento === 'cartao') {
+        db.prepare('UPDATE caixa SET total_cartao_centavos = total_cartao_centavos - ? WHERE id = ?').run(total, caixa.id);
+      } else if (venda.forma_pagamento === 'pix') {
+        db.prepare('UPDATE caixa SET total_pix_centavos = total_pix_centavos - ? WHERE id = ?').run(total, caixa.id);
+      } else if (venda.forma_pagamento === 'misto') {
+        db.prepare('UPDATE caixa SET total_dinheiro_centavos = total_dinheiro_centavos - ?, total_misto_centavos = total_misto_centavos - ? WHERE id = ?')
+          .run(total, total, caixa.id);
+      }
+
+      // 4. Marca venda como cancelada
+      db.prepare("UPDATE vendas SET status = 'cancelada', observacao = COALESCE(observacao, '') || ' | CANCELADA EM ' || datetime('now') WHERE id = ?").run(id);
+
+      // 5. Remove idempotency key se existir (permite recriar a venda com mesma chave)
+      db.prepare('DELETE FROM venda_idempotencia WHERE venda_id = ?').run(id);
+    });
+
+    const vendaCancelada = db.prepare(`
+      SELECT v.*, u.nome as barbeiro_nome, u2.nome as cliente_nome
+      FROM vendas v
+      JOIN barbeiros b ON b.id = v.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      LEFT JOIN usuarios u2 ON u2.id = v.cliente_id
+      WHERE v.id = ?
+    `).get(id);
+    const itensCancelados = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(id);
+
+    return { venda: { ...vendaParaJson(vendaCancelada, itensCancelados), barbeiro_nome: vendaCancelada.barbeiro_nome, cliente_nome: vendaCancelada.cliente_nome } };
+  });
+
   // ───────────────────────── Fase 3: Comissões ─────────────────────────
 
   r.get('/api/comissoes', auth.exigirLogin, (ctx) => {
@@ -1436,6 +1622,23 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       params.push(v.dataISO(ctx.query.data_fim));
     }
 
+    // Paginação
+    const page = Math.max(1, v.inteiro(ctx.query.page, 'page', { min: 1, max: 10000, opcional: true }) || 1);
+    const limit = Math.min(100, Math.max(1, v.inteiro(ctx.query.limit, 'limit', { min: 1, max: 100, opcional: true }) || 50));
+    const offset = (page - 1) * limit;
+
+    // Total count
+    const totalRow = db.prepare(`
+      SELECT COUNT(*) as total
+      FROM comissoes c
+      JOIN venda_itens vi ON vi.id = c.venda_item_id
+      JOIN vendas v ON v.id = vi.venda_id
+      JOIN barbeiros b ON b.id = c.barbeiro_id
+      JOIN usuarios u ON u.id = b.usuario_id
+      ${where}
+    `).get(...params);
+    const total = totalRow.total;
+
     const comissoes = db.prepare(`
       SELECT c.*, vi.tipo as item_tipo, vi.referencia_id, vi.quantidade, vi.preco_unit_centavos,
              v.id as venda_id, v.criado_em as venda_criado_em, v.forma_pagamento,
@@ -1447,7 +1650,8 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       JOIN usuarios u ON u.id = b.usuario_id
       ${where}
       ORDER BY v.criado_em DESC
-    `).all(...params);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
 
     // Enriquece com nome do serviço/produto
     for (const c of comissoes) {
@@ -1460,7 +1664,10 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
       }
     }
 
-    return { comissoes };
+    return {
+      comissoes,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   });
 
   r.get('/api/comissoes/resumo', auth.exigirLogin, (ctx) => {
@@ -2097,18 +2304,21 @@ function criarRotas(db, { limitador = new auth.LimitadorLogin() } = {}) {
     // Idempotency: usa o ID do evento do Mercado Pago (data.id) ou hash do payload
     const eventoId = payload?.data?.id || payload?.id || require('node:crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 32);
 
-    // Verifica se já processamos este evento
-    const jaProcessado = db.prepare('SELECT 1 FROM webhook_eventos WHERE evento_id = ? AND gateway = ?').get(eventoId, gateway.gateway);
-    if (jaProcessado) {
+    // Registra o evento ANTES de processar (idempotência real - evita race condition)
+    const insertResult = db.prepare('INSERT OR IGNORE INTO webhook_eventos (evento_id, gateway, tipo, payload, processado_em) VALUES (?, ?, ?, ?, datetime(\'now\'))')
+      .run(eventoId, gateway.gateway, 'pendente', JSON.stringify(payload));
+
+    // Se não inseriu (já existia), retorna duplicado
+    if (insertResult.changes === 0) {
       return { received: true, duplicado: true };
     }
 
     try {
       const evento = await gateway.processarWebhook(payload, signature);
 
-      // Registra o evento como processado (antes de processar para evitar race conditions)
-      db.prepare('INSERT OR IGNORE INTO webhook_eventos (evento_id, gateway, tipo, payload, processado_em) VALUES (?, ?, ?, ?, datetime(\'now\'))')
-        .run(eventoId, gateway.gateway, evento.tipo, JSON.stringify(payload));
+      // Atualiza o tipo do evento agora que sabemos qual é
+      db.prepare('UPDATE webhook_eventos SET tipo = ? WHERE evento_id = ? AND gateway = ?')
+        .run(evento.tipo, eventoId, gateway.gateway);
 
       switch (evento.tipo) {
         case 'pagamento_aprovado': {

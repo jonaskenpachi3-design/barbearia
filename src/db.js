@@ -271,6 +271,14 @@ CREATE TABLE IF NOT EXISTS webhook_eventos (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_gateway_evento ON webhook_eventos (gateway, evento_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_processado ON webhook_eventos (processado_em);
+
+-- Idempotency para vendas (evita duplicação de clique duplo)
+CREATE TABLE IF NOT EXISTS venda_idempotencia (
+  chave           TEXT    PRIMARY KEY,        -- Idempotency-Key header
+  venda_id        INTEGER NOT NULL,           -- ID da venda criada
+  criado_em       TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_venda_idemp_venda ON venda_idempotencia (venda_id);
 `;
 
 function abrirBanco(arquivo) {
@@ -326,6 +334,33 @@ function abrirBanco(arquivo) {
       ('Combo Mesc. Jr.', 'Degradê + Barba Mesclada — 4 serviços/mês', 15000, 30, '["4_servicos_mes","cabelo_barba","degrade","barba_mesclada"]', 1),
       ('Combo Basic Mesc.', 'Social + Barba — 3 serviços/mês', 10500, 30, '["3_servicos_mes","cabelo_barba","social","barba_inclusa"]', 1);
     `);
+  }
+
+  // Migração: adiciona status 'estornado' em comissoes se não existir (recria tabela)
+  const colsComissoes = db.prepare("PRAGMA table_info(comissoes)").all();
+  const temStatusEstornado = colsComissoes.some(c => c.name === 'status');
+  if (temStatusEstornado) {
+    // Verifica se o CHECK constraint já permite 'estornado'
+    const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='comissoes'").get();
+    if (schema && !schema.sql.includes("'estornado'")) {
+      db.exec(`
+        CREATE TABLE comissoes_new (
+          id                 INTEGER PRIMARY KEY,
+          venda_item_id      INTEGER NOT NULL REFERENCES venda_itens(id) ON DELETE CASCADE,
+          barbeiro_id        INTEGER NOT NULL REFERENCES barbeiros(id) ON DELETE CASCADE,
+          valor_centavos     INTEGER NOT NULL CHECK (valor_centavos >= 0),
+          status             TEXT    NOT NULL DEFAULT 'a_receber' CHECK (status IN ('a_receber','pago','estornado')),
+          pago_em            TEXT,
+          pago_por           INTEGER REFERENCES usuarios(id),
+          observacao         TEXT
+        );
+        INSERT INTO comissoes_new SELECT * FROM comissoes;
+        DROP TABLE comissoes;
+        ALTER TABLE comissoes_new RENAME TO comissoes;
+        CREATE INDEX IF NOT EXISTS idx_comissao_barbeiro ON comissoes (barbeiro_id, status);
+        CREATE INDEX IF NOT EXISTS idx_comissao_venda_item ON comissoes (venda_item_id);
+      `);
+    }
   }
 
   return db;

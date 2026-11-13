@@ -68,7 +68,11 @@ function documento(valor) {
   return resultado.formatado;
 }
 
-function inteiro(valor, campo, { min = 0, max = 1_000_000 } = {}) {
+function inteiro(valor, campo, { min = 0, max = 1_000_000, opcional = false } = {}) {
+  if (valor === undefined || valor === null || valor === '') {
+    if (opcional) return null;
+    throw new ErroHttp(400, `${campo} é obrigatório.`);
+  }
   if (typeof valor === 'string') {
     const n = Number(valor);
     if (!Number.isInteger(n)) throw new ErroHttp(400, `${campo} deve ser um número inteiro.`);
