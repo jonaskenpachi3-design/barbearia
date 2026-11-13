@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Favicon - Navalha Barbearia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      color: #1a1a1a;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .subtitle {
+      color: #666;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .preview {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 24px;
+      background: #fafafa;
+      border-radius: 8px;
+    }
+    .preview-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-item canvas {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .preview-item label {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #D4A843, #B8860B);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(212, 168, 67, 0.4);
+    }
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+    .btn-download {
+      background: #1a1a1a;
+      color: white;
+    }
+    .btn-download:hover {
+      background: #333;
+    }
+    .info-box {
+      background: #fff8e1;
+      border-left: 4px solid #D4A843;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 24px;
+    }
+    .info-box h3 {
+      color: #B8860B;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+    .info-box p {
+      color: #5d4e00;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .info-box code {
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .sizes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .size-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+    .size-item canvas {
+      border-radius: 4px;
+    }
+    .size-item button {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🪒 Favicon Navalha Barbearia</h1>
+    <p class="subtitle">Gere todos os tamanhos de favicon necessários para produção</p>
+
+    <div class="preview">
+      <div class="preview-item">
+        <label>SVG Original (vetorial)</label>
+        <img id="svgPreview" src="favicon.svg" alt="Favicon SVG" width="128" height="128" style="border-radius: 12px; border: 1px solid #eee;">
+      </div>
+      <div class="preview-item">
+        <label>Preview 32×32</label>
+        <canvas id="canvas32" width="32" height="32"></canvas>
+      </div>
+      <div class="preview-item">
+        <label>Preview 180×180 (Apple Touch)</label>
+        <canvas id="canvas180" width="180" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn-primary" id="generateAll">Gerar Todos os PNGs</button>
+      <button class="btn-secondary" id="downloadZip">Baixar Todos (ZIP)</button>
+      <a href="favicon.svg" download="favicon.svg" class="btn-download" style="text-decoration: none; display: inline-flex; align-items: center; padding: 12px 24px;">⬇ Baixar SVG</a>
+    </div>
+
+    <div class="info-box">
+      <h3>📋 Tamanhos Gerados</h3>
+      <p>Os seguintes arquivos serão criados e podem ser baixados individualmente:</p>
+      <div class="sizes-grid" id="sizesGrid"></div>
+    </div>
+
+    <div class="info-box" style="margin-top: 16px; background: #e8f5e9; border-left-color: #4caf50;">
+      <h3 style="color: #2e7d32;">✅ Como usar no projeto</h3>
+      <p>Adicione no <code><head></code> de todas as páginas HTML:</p>
+      <pre style="background: #1a1a1a; color: #d4d4d4; padding: 12px; border-radius: 6px; margin-top: 8px; overflow-x: auto; font-size: 0.8rem;"><code><link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest"></code></pre>
+    </div>
+  </div>
+
+  <script>
+    const svgUrl = 'favicon.svg';
+    const sizes = [16, 32, 48, 64, 96, 128, 180, 192, 512];
+    const generated = {};
+
+    // Carrega SVG e desenha nos canvas de preview
+    const img = new Image();
+    img.onload = () => {
+      drawPreview(img);
+      generateAll(); // Auto-gera na carga
+    };
+    img.src = svgUrl;
+
+    function drawPreview(img) {
+      // 32x32
+      const ctx32 = document.getElementById('canvas32').getContext('2d');
+      ctx32.drawImage(img, 0, 0, 32, 32);
+
+      // 180x180
+      const ctx180 = document.getElementById('canvas180').getContext('2d');
+      ctx180.drawImage(img, 0, 0, 180, 180);
+    }
+
+    function generateAll() {
+      const img = new Image();
+      img.onload = () => {
+        sizes.forEach(size => {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          generated[size] = canvas.toDataURL('image/png');
+        });
+        renderSizeGrid();
+      };
+      img.src = svgUrl;
+    }
+
+    function renderSizeGrid() {
+      const grid = document.getElementById('sizesGrid');
+      grid.innerHTML = '';
+
+      const importantSizes = [16, 32, 48, 64, 96, 128, 180, 192, 512];
+
+      importantSizes.forEach(size => {
+        const div = document.createElement('div');
+        div.className = 'size-item';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, size, size);
+        img.src = generated[size];
+
+        const label = document.createElement('span');
+        label.style.fontSize = '0.75rem';
+        label.style.color = '#666';
+        label.textContent = `${size}×${size}`;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn-secondary';
+        btn.textContent = 'Baixar';
+        btn.onclick = () => downloadPNG(size);
+
+        div.appendChild(canvas);
+        div.appendChild(label);
+        div.appendChild(btn);
+        grid.appendChild(div);
+      });
+    }
+
+    function downloadPNG(size) {
+      const dataUrl = generated[size];
+      if (!dataUrl) return;
+
+      const suffix = size === 180 ? 'apple-touch-icon' :
+                     size === 192 ? 'icon-192' :
+                     size === 512 ? 'icon-512' : `favicon-${size}`;
+      const filename = `${suffix}.png`;
+
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.click();
+    }
+
+    document.getElementById('generateAll').onclick = generateAll;
+
+    // Baixar ZIP (usa JSZip se disponível, senão baixa individualmente)
+    document.getElementById('downloadZip').onclick = async () => {
+      try {
+        // Tenta carregar JSZip dinamicamente
+        const JSZip = await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm');
+        const zip = new JSZip.default();
+
+        // Adiciona SVG
+        const svgResponse = await fetch(svgUrl);
+        const svgBlob = await svgResponse.blob();
+        zip.file('favicon.svg', svgBlob);
+
+        // Adiciona PNGs
+        for (const [size, dataUrl] of Object.entries(generated)) {
+          const response = await fetch(dataUrl);
+          const blob = await response.blob();
+          const suffix = size === 180 ? 'apple-touch-icon' :
+                         size === 192 ? 'icon-192' :
+                         size === 512 ? 'icon-512' : `favicon-${size}`;
+          zip.file(`${suffix}.png`, blob);
+        }
+
+        // Gera site.webmanifest
+        const manifest = {
+          name: "Navalha Barbearia",
+          short_name: "Navalha",
+          icons: sizes.filter(s => [192, 512].includes(s)).map(size => ({
+            src: `/icon-${size}.png`,
+            sizes: `${size}x${size}`,
+            type: "image/png",
+            purpose: "any maskable"
+          })),
+          theme_color: "#D4A843",
+          background_color: "#1a1a1a",
+          display: "standalone",
+          start_url: "/"
+        };
+        zip.file('site.webmanifest', JSON.stringify(manifest, null, 2));
+
+        const content = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = 'favicon-package.zip';
+        link.click();
+      } catch (e) {
+        console.error(e);
+        alert('Erro ao gerar ZIP. Baixe os arquivos individualmente.');
+      }
+    };
+  </script>
+</body>
+</html>
