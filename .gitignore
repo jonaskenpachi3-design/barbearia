@@ -12,6 +12,7 @@ node_modules/
 *.db
 *.db-journal
 *.wal
+*.shm
 data/*.db
 data/*.sqlite
 
@@ -34,6 +35,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Testes temporários
 coverage/
