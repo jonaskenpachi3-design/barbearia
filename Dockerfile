@@ -2,9 +2,9 @@
 FROM node:22-alpine
 WORKDIR /app
 
-# Copia só package.json se existisse (zero deps = não precisa npm install)
-# COPY package*.json ./
-# RUN npm ci --only=production
+# Copia package.json e instala dependências de produção
+COPY package*.json ./
+RUN npm ci --omit=dev
 
 # Copia todo o projeto
 COPY . .

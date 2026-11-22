@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Dependencies
+node_modules
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database (local only - Railway uses volume)
+data/*.db
+data/*.sqlite
+data/*.wal
+data/*.shm
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+coverage
+.nyc_output
+
+# Cache
+.cache
+
+# Misc
+*.bundle
+nul

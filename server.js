@@ -62,12 +62,18 @@ function criarServidor({ db, pastaPublica = path.join(__dirname, 'public'), limi
   const servidor = http.createServer(async (req, res) => {
     cabecalhosDeSeguranca(res);
 
+    // Healthcheck endpoint (antes de auth/logging para Railway)
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    }
+
     // Request logging middleware
     return new Promise((resolve) => {
       requestLogger(req, res, () => {
         (async () => {
           try {
-            const url = new URL(req.url, 'http://localhost');
             const caminho = url.pathname;
 
             if (!caminho.startsWith('/api/')) {
